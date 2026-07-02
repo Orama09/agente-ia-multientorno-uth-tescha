@@ -175,9 +175,11 @@ ollama pull llama3
 # 👩‍💻 Autoras
 
 **Elia Samantha Romero Rosas**
+
 **Angélica Rubí Amaro Téllez**
 
 Tecnológico de Estudios Superiores de Chalco
+
 Ingeniería Informática
 
 ---

@@ -1,0 +1,43 @@
+{
+  "name": "ai-avatar-institucional",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "index-docs": "tsx scripts/indexDocuments.ts"
+  },
+  "dependencies": {
+    "@heygen/streaming-avatar": "^1.0.0",
+    "axios": "^1.13.6",
+    "framer-motion": "^11.0.0",
+    "lucide-react": "^0.577.0",
+    "next": "14.2.3",
+    "pdf-parse": "^1.1.4",
+    "pdf2pic": "^3.2.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-markdown": "^10.1.0",
+    "tailwindcss": "^3.4.0",
+    "tesseract.js": "^7.0.0",
+    "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.37",
+    "@types/node-fetch": "^2.6.13",
+    "@types/pdf-parse": "^1.1.5",
+    "@types/react": "^18.2.66",
+    "@types/react-dom": "^18.2.22",
+    "@types/uuid": "^9.0.7",
+    "autoprefixer": "^10.4.27",
+    "eslint": "^8.57.0",
+    "eslint-config-next": "14.2.3",
+    "postcss": "^8.5.8",
+    "ts-node": "^10.9.2",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
+  }
+}

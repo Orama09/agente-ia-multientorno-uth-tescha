@@ -1,0 +1,58 @@
+services:
+
+  nextjs:
+    build:
+      context: .
+      dockerfile: Dockerfile 
+    container_name: ai-avatar-nextjs
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./:/app
+      - nextjs_node_modules:/app/node_modules
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+      - WATCHPACK_POLLING=true
+      - NODE_ENV=development
+      - OLLAMA_URL=http://ollama:11434
+      - CHROMA_URL=http://chroma:8000
+      - HEYGEN_API_KEY=${HEYGEN_API_KEY}
+    depends_on:
+      - ollama
+      - chroma
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama:/root/.ollama
+    restart: unless-stopped
+    entrypoint: ["/bin/sh", "-c"]
+    command: >
+      "ollama serve & 
+      sleep 5 && 
+      ollama pull llama3 && 
+      ollama pull nomic-embed-text &&
+      wait"
+
+  chroma:
+    image: chromadb/chroma:latest
+    container_name: chroma
+    ports:
+      - "8000:8000"
+    volumes:
+      - chroma_data:/chroma/chroma
+    restart: unless-stopped
+
+volumes:
+  ollama:
+    name: ai-avatar_ollama
+
+  chroma_data:
+    name: ai-avatar_chroma_data
+
+  nextjs_node_modules:
+    name: ai-avatar_nextjs_node_modules
+    

@@ -1,68 +1,80 @@
+import { OLLAMA_GENERATION_MODEL, OLLAMA_URL } from "./config";
+
 // ================================
-// 🤖 GENERACIÓN NORMAL (fallback)
+// Generación sin streaming (fallback)
 // ================================
-export async function queryModel(prompt: string) {
-  const response = await fetch("http://ollama:11434/api/generate", {
+export async function queryModel(prompt: string): Promise<string> {
+  const response = await fetch(`${OLLAMA_URL}/api/generate`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "llama3",
+      model: OLLAMA_GENERATION_MODEL,
       prompt,
       stream: false,
     }),
   });
 
-  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(`Ollama respondió con status ${response.status}`);
+  }
 
+  const data = await response.json();
   return data.response || "";
 }
 
 // ================================
-// 🚀 STREAMING REAL (CLAVE)
+// Streaming con callback por token
 // ================================
-export async function queryModelStream(
+export async function streamModelResponse(
   prompt: string,
-  onChunk: (chunk: string) => void
-) {
-  const response = await fetch("http://ollama:11434/api/generate", {
+  onToken: (token: string) => void
+): Promise<string> {
+  const response = await fetch(`${OLLAMA_URL}/api/generate`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "llama3",
+      model: OLLAMA_GENERATION_MODEL,
       prompt,
-      stream: true, // 🔥 ACTIVADO
+      stream: true,
     }),
   });
 
-  const reader = response.body?.getReader();
-  const decoder = new TextDecoder();
+  if (!response.ok) {
+    throw new Error(`Ollama respondió con status ${response.status}`);
+  }
 
+  const reader = response.body?.getReader();
   if (!reader) throw new Error("No stream");
 
-  let buffer = "";
+  const decoder = new TextDecoder();
+  let fullResponse = "";
 
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
 
-    buffer += decoder.decode(value, { stream: true });
+    const chunk = decoder.decode(value, { stream: true });
+    const lines = chunk.split("\n");
 
-    // Ollama manda JSON por partes
-    const parts = buffer.split("\n");
+    for (const line of lines) {
+      if (!line.trim()) continue;
 
-    for (let i = 0; i < parts.length - 1; i++) {
       try {
-        const json = JSON.parse(parts[i]);
-        if (json.response) {
-          onChunk(json.response);
+        const json = JSON.parse(line);
+        const token = json.response || "";
+        if (token) {
+          fullResponse += token;
+          onToken(token);
         }
-      } catch {}
+      } catch {
+        // Línea JSON incompleta; Ollama envía un JSON por línea
+      }
     }
-
-    buffer = parts[parts.length - 1];
   }
+
+  return fullResponse;
 }

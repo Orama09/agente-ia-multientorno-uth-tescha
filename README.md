@@ -106,9 +106,44 @@ Instala las dependencias
 npm install
 ```
 
+Configura las variables de entorno (desarrollo local)
+
+```bash
+cp .env.example .env.local
+```
+
+Edita `.env.local` si tus servicios no usan los puertos por defecto.
+
+---
+
+# 🔧 Variables de entorno
+
+| Variable | Descripción | Local (`.env.local`) | Docker |
+|----------|-------------|----------------------|--------|
+| `OLLAMA_URL` | URL base de Ollama | `http://localhost:11434` | `http://ollama:11434` |
+| `CHROMA_URL` | URL base de ChromaDB | `http://localhost:8000` | `http://chroma:8000` |
+| `OLLAMA_GENERATION_MODEL` | Modelo de chat | `llama3` | `llama3` |
+| `OLLAMA_EMBEDDING_MODEL` | Modelo de embeddings | `nomic-embed-text` | `nomic-embed-text` |
+| `CHROMA_COLLECTION_NAME` | Colección RAG | `school_documents` | `school_documents` |
+
+La configuración centralizada vive en `src/lib/config.ts`.
+
 ---
 
 # ▶️ Ejecutar sin Docker
+
+Requisitos adicionales en local:
+
+1. Ollama en ejecución (`ollama serve`)
+2. ChromaDB en el puerto 8000 (p. ej. solo el servicio `chroma` de Docker, o una instancia local)
+3. Modelos descargados: `llama3` y `nomic-embed-text`
+4. Archivo `.env.local` creado desde `.env.example`
+
+Indexar documentos (opcional, primera vez):
+
+```bash
+npm run index-docs
+```
 
 Inicia el servidor de desarrollo
 
@@ -150,25 +185,29 @@ La aplicación estará disponible en:
 http://localhost:3000
 ```
 
+Docker Compose inyecta automáticamente las URLs internas (`ollama`, `chroma`) y descarga los modelos configurados al iniciar el contenedor de Ollama.
+
+Indexar documentos dentro del contenedor Next.js (primera vez o tras agregar PDFs):
+
+```bash
+docker compose exec nextjs npm run index-docs
+```
+
+Puedes sobrescribir variables creando un archivo `.env` en la raíz del proyecto (Docker Compose lo lee al levantar los servicios).
+
 ---
 
 # 🤖 Ollama
 
-Antes de ejecutar el proyecto verifica que Ollama esté activo.
-
-Ejemplo:
+En desarrollo local, verifica que Ollama esté activo:
 
 ```bash
 ollama serve
-```
-
-Y descarga el modelo que utilices.
-
-Por ejemplo:
-
-```bash
 ollama pull llama3
+ollama pull nomic-embed-text
 ```
+
+Los nombres de modelo deben coincidir con `OLLAMA_GENERATION_MODEL` y `OLLAMA_EMBEDDING_MODEL` en tu `.env.local`.
 
 ---
 

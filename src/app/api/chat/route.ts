@@ -1,19 +1,15 @@
-// app/chat/route.ts (MODO CHATGPT REAL 🔥)
 import { retrieveContext, addToRAG } from "@/lib/rag";
+import { streamModelResponse } from "@/lib/ollama";
 import pdf from "pdf-parse";
 
 const MAX_CONTEXT_CHARS = 4000;
 
-// 🧠 Memoria simple en servidor (puedes cambiar a DB después)
 const memory = new Map<string, string[]>();
 
 export async function POST(req: Request) {
   try {
     const contentType = req.headers.get("content-type");
 
-    // ===============================
-    // 1️⃣ ARCHIVOS
-    // ===============================
     if (contentType?.includes("multipart/form-data")) {
       const formData = await req.formData();
       const file = formData.get("file") as File;
@@ -39,9 +35,6 @@ export async function POST(req: Request) {
       });
     }
 
-    // ===============================
-    // 2️⃣ CHAT
-    // ===============================
     const body = await req.json();
     const question = body.question || body.message;
     const userId = body.userId || "default";
@@ -50,20 +43,13 @@ export async function POST(req: Request) {
       return Response.json({ error: "Pregunta inválida" }, { status: 400 });
     }
 
-    // ===============================
-    // 3️⃣ MEMORIA REAL POR USUARIO
-    // ===============================
     if (!memory.has(userId)) {
       memory.set(userId, []);
     }
 
     const userHistory = memory.get(userId)!;
-
     const historyText = userHistory.join("\n");
 
-    // ===============================
-    // 4️⃣ RAG
-    // ===============================
     const { context } = await retrieveContext(question);
 
     let finalContext = context;
@@ -77,9 +63,6 @@ export async function POST(req: Request) {
         ? finalContext.slice(0, MAX_CONTEXT_CHARS)
         : finalContext;
 
-    // ===============================
-    // 5️⃣ PROMPT NIVEL CHATGPT
-    // ===============================
     const prompt = `
 Eres un asistente inteligente del TESCHA.
 
@@ -104,61 +87,23 @@ ${question}
 Asistente:
 `;
 
-    // ===============================
-    // 6️⃣ STREAMING (🔥 CHATGPT REAL)
-    // ===============================
     const encoder = new TextEncoder();
 
     const stream = new ReadableStream({
       async start(controller) {
         try {
-          const res = await fetch("http://ollama:11434/api/generate", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              model: "llama3",
-              prompt,
-              stream: true,
-            }),
+          const fullResponse = await streamModelResponse(prompt, (token) => {
+            controller.enqueue(encoder.encode(token));
           });
 
-          const reader = res.body!.getReader();
-          let fullResponse = "";
-
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-
-            const chunk = new TextDecoder().decode(value);
-            const lines = chunk.split("\n");
-
-            for (const line of lines) {
-              if (!line.trim()) continue;
-
-              try {
-                const json = JSON.parse(line);
-                const token = json.response || "";
-
-                fullResponse += token;
-
-                controller.enqueue(encoder.encode(token));
-              } catch {}
-            }
-          }
-
-          // 💾 GUARDAR MEMORIA
           userHistory.push(`Usuario: ${question}`);
           userHistory.push(`Asistente: ${fullResponse}`);
 
-          // limitar memoria
           if (userHistory.length > 20) {
             memory.set(userId, userHistory.slice(-20));
           }
 
           controller.close();
-
         } catch (err) {
           console.error(err);
           controller.error(err);
@@ -171,7 +116,6 @@ Asistente:
         "Content-Type": "text/plain; charset=utf-8",
       },
     });
-
   } catch (error) {
     console.error("❌ Error:", error);
     return Response.json({ error: "Error interno" }, { status: 500 });

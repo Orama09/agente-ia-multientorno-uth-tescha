@@ -2,32 +2,32 @@ import fs from "fs";
 import path from "path";
 import axios from "axios";
 import pdfParse from "pdf-parse";
+import { loadEnvFiles } from "../src/lib/loadEnv";
+import {
+  CHROMA_COLLECTION_NAME,
+  OLLAMA_EMBEDDING_MODEL,
+  OLLAMA_URL,
+  chromaPaths,
+} from "../src/lib/config";
+
+loadEnvFiles();
 
 const DOCUMENTS_PATH = path.join(process.cwd(), "documents");
 
-const CHROMA_URL = `${process.env.CHROMA_URL || "http://chroma:8000"}/api/v2`;
-const OLLAMA_URL = process.env.OLLAMA_URL || "http://ollama:11434";
-
-const COLLECTION_NAME = "school_documents";
-
-/**
- * 🔥 EMBEDDING
- */
 async function getEmbedding(text: string) {
   const res = await axios.post(`${OLLAMA_URL}/api/embeddings`, {
-    model: "nomic-embed-text",
+    model: OLLAMA_EMBEDDING_MODEL,
     prompt: text,
   });
 
   let embedding =
-    res.data.embedding ||
-    res.data?.data?.[0]?.embedding;
+    res.data.embedding || res.data?.data?.[0]?.embedding;
 
   if (!embedding) {
     throw new Error("Embedding vacío");
   }
 
-  embedding = embedding.map((v: any) => Number(v));
+  embedding = embedding.map((v: number) => Number(v));
 
   if (embedding.length !== 768) {
     throw new Error(`Dimensión inválida: ${embedding.length}`);
@@ -36,15 +36,12 @@ async function getEmbedding(text: string) {
   return embedding;
 }
 
-/**
- * 🔥 Crear o validar colección (RETORNA ID)
- */
 async function createCollection() {
-  const res = await axios.get(
-    `${CHROMA_URL}/tenants/default_tenant/databases/default_database/collections`
-  );
+  const res = await axios.get(chromaPaths.collections());
 
-  const existing = res.data.find((c: any) => c.name === COLLECTION_NAME);
+  const existing = res.data.find(
+    (c: { name: string }) => c.name === CHROMA_COLLECTION_NAME
+  );
 
   if (existing) {
     console.log("✅ Colección encontrada:", existing.name);
@@ -52,8 +49,8 @@ async function createCollection() {
   }
 
   const created = await axios.post(
-    `${CHROMA_URL}/tenants/default_tenant/databases/default_database/collections`,
-    { name: COLLECTION_NAME },
+    chromaPaths.collections(),
+    { name: CHROMA_COLLECTION_NAME },
     {
       headers: {
         "Content-Type": "application/json",
@@ -65,32 +62,23 @@ async function createCollection() {
   return created.data.id;
 }
 
-/**
- * 🔍 Verificar si el documento ya existe
- */
 async function documentExists(collectionId: string, fileName: string) {
   try {
-    const res = await axios.post(
-      `${CHROMA_URL}/tenants/default_tenant/databases/default_database/collections/${collectionId}/get`,
-      {
-        where: {
-          source: fileName,
-        },
-        limit: 1,
-      }
-    );
+    const res = await axios.post(`${chromaPaths.collection(collectionId)}/get`, {
+      where: {
+        source: fileName,
+      },
+      limit: 1,
+    });
 
     return res.data?.ids?.length > 0;
-
-  } catch (err: any) {
-    console.log("⚠️ Error verificando documento:", err.message);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.log("⚠️ Error verificando documento:", message);
     return false;
   }
 }
 
-/**
- * 🔹 Limpieza de texto
- */
 function cleanText(text: string) {
   return text
     .replace(/\n+/g, " ")
@@ -98,9 +86,6 @@ function cleanText(text: string) {
     .trim();
 }
 
-/**
- * 🔹 Chunking
- */
 function splitText(text: string) {
   const chunkSize = 700;
   const overlap = 120;
@@ -114,20 +99,16 @@ function splitText(text: string) {
   return chunks;
 }
 
-/**
- * 📄 Extraer PDF
- */
 async function extractPDFText(filePath: string) {
   const buffer = fs.readFileSync(filePath);
   const data = await pdfParse(buffer);
   return cleanText(data.text);
 }
 
-/**
- * 🚀 INDEXACIÓN PRINCIPAL
- */
 async function indexDocuments() {
-  console.log("🚀 Iniciando indexación...\n");
+  console.log("🚀 Iniciando indexación...");
+  console.log(`   Ollama: ${OLLAMA_URL}`);
+  console.log(`   Chroma: ${chromaPaths.collections()}\n`);
 
   if (!fs.existsSync(DOCUMENTS_PATH)) {
     console.log("❌ Carpeta documents no encontrada");
@@ -144,7 +125,6 @@ async function indexDocuments() {
 
     console.log(`\n📄 Procesando: ${file}`);
 
-    // 🔥 Validar si ya existe
     const alreadyExists = await documentExists(collectionId, file);
 
     if (alreadyExists) {
@@ -163,7 +143,8 @@ async function indexDocuments() {
     const ids: string[] = [];
     const documents: string[] = [];
     const embeddings: number[][] = [];
-    const metadatas: any[] = [];
+    const metadatas: Array<{ source: string; chunk: number; total: number }> =
+      [];
 
     for (let i = 0; i < chunks.length; i++) {
       try {
@@ -178,9 +159,9 @@ async function indexDocuments() {
           chunk: i + 1,
           total: chunks.length,
         });
-
-      } catch (err: any) {
-        console.log(`⚠️ Chunk ${i} omitido:`, err.message);
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.log(`⚠️ Chunk ${i} omitido:`, message);
       }
     }
 
@@ -197,7 +178,7 @@ async function indexDocuments() {
 
     try {
       await axios.post(
-        `${CHROMA_URL}/tenants/default_tenant/databases/default_database/collections/${collectionId}/upsert`,
+        `${chromaPaths.collection(collectionId)}/upsert`,
         {
           ids,
           documents,
@@ -212,10 +193,13 @@ async function indexDocuments() {
       );
 
       console.log(`✅ Indexados: ${embeddings.length}/${chunks.length}`);
-
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.log("❌ Error en Chroma:");
-      console.log(err.response?.data || err.message);
+      if (axios.isAxiosError(err)) {
+        console.log(err.response?.data || err.message);
+      } else {
+        console.log(err);
+      }
     }
   }
 

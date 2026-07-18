@@ -9,6 +9,7 @@ import {
   isWebSpeechTtsEnabled,
 } from "@/lib/assistant/assistantExperienceConfig";
 import { useSpeechSynthesis } from "@/lib/speech/useSpeechSynthesis";
+import { useStreamingSpeechSynthesis } from "@/lib/speech/useStreamingSpeechSynthesis";
 import { StopSpeechButton } from "./SpeechControls";
 
 type ChatMessage = {
@@ -38,7 +39,9 @@ export default function ChatPanel({ onAvatarStateChange }: ChatPanelProps) {
   const {
     isSupported: speechSupported,
     isEnabled: speechEnabled,
-    isSpeaking: ttsSpeaking,
+    isSpeaking: oneshotSpeaking,
+    selectedVoiceURI,
+    rate: speechRate,
     setEnabled: setSpeechEnabled,
     speak,
     cancel: cancelSpeech,
@@ -47,10 +50,32 @@ export default function ChatPanel({ onAvatarStateChange }: ChatPanelProps) {
     providerActive: ttsAvailable,
   });
 
+  const {
+    isSpeaking: streamSpeaking,
+    start: startStreamSpeech,
+    pushText: pushStreamSpeech,
+    finish: finishStreamSpeech,
+    cancel: cancelStreamSpeech,
+  } = useStreamingSpeechSynthesis({
+    voiceURI: selectedVoiceURI,
+    rate: speechRate,
+    enabled: speechEnabled,
+    supported: speechSupported && ttsAvailable,
+  });
+
+  const ttsSpeaking = oneshotSpeaking || streamSpeaking;
   const showSpeechToggle = ttsAvailable;
+
+  const useProgressiveSpeech =
+    speechEnabled && speechSupported && ttsAvailable;
 
   const setAvatar = (state: Parameters<AvatarStateChangeHandler>[0]) => {
     onAvatarStateChange?.(state);
+  };
+
+  const cancelAllSpeech = () => {
+    cancelStreamSpeech();
+    cancelSpeech();
   };
 
   const replaceOrAppendAssistant = (content: string) => {
@@ -66,7 +91,7 @@ export default function ChatPanel({ onAvatarStateChange }: ChatPanelProps) {
   };
 
   /**
-   * Tras respuesta OK: con voz → speaking + TTS → happy;
+   * Respuesta one-shot (p. ej. upload): con voz → speak completo → happy;
    * sin voz → happy inmediato.
    */
   const finishSuccessfulReply = (text: string, operationId: number) => {
@@ -77,7 +102,6 @@ export default function ChatPanel({ onAvatarStateChange }: ChatPanelProps) {
       return;
     }
 
-    // Mantener speaking mientras el navegador lee la respuesta final
     setAvatar("speaking");
 
     const started = speak(text, {
@@ -98,7 +122,7 @@ export default function ChatPanel({ onAvatarStateChange }: ChatPanelProps) {
 
   const failReply = (message: string, operationId: number) => {
     if (operationId !== operationIdRef.current) return;
-    cancelSpeech();
+    cancelAllSpeech();
     replaceOrAppendAssistant(message);
     setAvatar("error");
   };
@@ -114,11 +138,21 @@ export default function ChatPanel({ onAvatarStateChange }: ChatPanelProps) {
     const history = messages;
     const operationId = ++operationIdRef.current;
 
-    cancelSpeech();
+    cancelAllSpeech();
     setMessages((prev) => [...prev, { role: "user", content: question }]);
     setInput("");
     setLoading(true);
     setAvatar("thinking");
+
+    const progressive = useProgressiveSpeech;
+    if (progressive) {
+      startStreamSpeech({
+        onDone: () => {
+          if (operationId !== operationIdRef.current) return;
+          setAvatar("happy");
+        },
+      });
+    }
 
     try {
       const res = await fetch("/api/chat", {
@@ -167,6 +201,10 @@ export default function ChatPanel({ onAvatarStateChange }: ChatPanelProps) {
           setAvatar("speaking");
         }
 
+        if (progressive) {
+          pushStreamSpeech(chunk);
+        }
+
         setMessages((prev) => {
           const updated = [...prev];
           updated[updated.length - 1] = {
@@ -181,6 +219,10 @@ export default function ChatPanel({ onAvatarStateChange }: ChatPanelProps) {
 
       if (!botMessage.trim()) {
         failReply(ERROR_MESSAGE, operationId);
+      } else if (progressive) {
+        // Avatar sigue en speaking hasta queue_done → happy
+        setAvatar("speaking");
+        finishStreamSpeech();
       } else {
         finishSuccessfulReply(botMessage, operationId);
       }
@@ -247,7 +289,7 @@ export default function ChatPanel({ onAvatarStateChange }: ChatPanelProps) {
     if (!file) return;
 
     const operationId = ++operationIdRef.current;
-    cancelSpeech();
+    cancelAllSpeech();
     setLoading(true);
     setAvatar("thinking");
 
@@ -286,9 +328,8 @@ export default function ChatPanel({ onAvatarStateChange }: ChatPanelProps) {
   const handleSpeechToggle = () => {
     if (!speechSupported) return;
 
-    // Desactivar mientras lee → cancelar y cerrar flujo con happy
     if (speechEnabled && ttsSpeaking) {
-      cancelSpeech();
+      cancelAllSpeech();
       setSpeechEnabled(false);
       setAvatar("happy");
       return;
@@ -297,9 +338,9 @@ export default function ChatPanel({ onAvatarStateChange }: ChatPanelProps) {
     setSpeechEnabled(!speechEnabled);
   };
 
-  /** Detener lectura: cancela TTS y cierra flujo del avatar con happy → idle. */
+  /** Detener: cancela utterance + cola progresiva y cierra avatar con happy. */
   const handleStopSpeech = () => {
-    cancelSpeech();
+    cancelAllSpeech();
     setAvatar("happy");
   };
 
@@ -332,7 +373,6 @@ export default function ChatPanel({ onAvatarStateChange }: ChatPanelProps) {
 
       <div className="sticky bottom-0 z-10 bg-white/90 backdrop-blur-md border-t p-3">
         <div className="flex items-center gap-2">
-          {/* Zona izquierda: Detener solo mientras TTS habla (antes: clip de archivo) */}
           <div className="shrink-0 min-w-[2.25rem] flex items-center justify-start">
             {ttsSpeaking ? (
               <StopSpeechButton onStop={handleStopSpeech} />
@@ -341,7 +381,6 @@ export default function ChatPanel({ onAvatarStateChange }: ChatPanelProps) {
             )}
           </div>
 
-          {/* Upload oculto: lógica conservada, sin acceso en UI */}
           <input
             type="file"
             ref={fileInputRef}

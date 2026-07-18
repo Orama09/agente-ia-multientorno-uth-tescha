@@ -12,6 +12,9 @@
   },
   "dependencies": {
     "@heygen/streaming-avatar": "^1.0.0",
+    "@react-three/drei": "^9.117.3",
+    "@react-three/fiber": "^8.17.10",
+    "@types/three": "^0.170.0",
     "axios": "^1.13.6",
     "framer-motion": "^11.0.0",
     "lucide-react": "^0.577.0",
@@ -23,6 +26,7 @@
     "react-markdown": "^10.1.0",
     "tailwindcss": "^3.4.0",
     "tesseract.js": "^7.0.0",
+    "three": "^0.170.0",
     "uuid": "^9.0.1"
   },
   "devDependencies": {

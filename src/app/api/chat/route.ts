@@ -1,10 +1,47 @@
 import { retrieveContext, addToRAG } from "@/lib/rag";
 import { streamModelResponse } from "@/lib/ollama";
+import {
+  createRequestId,
+  elapsedMs,
+  logPerf,
+  nowMs,
+} from "@/lib/performanceLog";
 import pdf from "pdf-parse";
 
-const MAX_CONTEXT_CHARS = 4000;
+/** Tope de contexto RAG en el prompt (prefill más corto en Ollama). */
+const MAX_CONTEXT_CHARS = 2500;
+
+/** Últimas N líneas de memoria (Usuario/Asistente) enviadas al prompt. */
+const MAX_HISTORY_LINES = 4;
+
+/** Tope duro de caracteres de historial en el prompt. */
+const MAX_HISTORY_CHARS = 1400;
+
+/** Cuántas entradas guardar en memoria del servidor (no todas van al prompt). */
+const MAX_MEMORY_LINES = 20;
 
 const memory = new Map<string, string[]>();
+
+function buildHistoryForPrompt(history: string[]): {
+  text: string;
+  history_truncated: boolean;
+  history_lines_used: number;
+} {
+  const recent = history.slice(-MAX_HISTORY_LINES);
+  let text = recent.join("\n");
+  let history_truncated = recent.length < history.length;
+
+  if (text.length > MAX_HISTORY_CHARS) {
+    text = text.slice(-MAX_HISTORY_CHARS);
+    history_truncated = true;
+  }
+
+  return {
+    text,
+    history_truncated,
+    history_lines_used: recent.length,
+  };
+}
 
 export async function POST(req: Request) {
   try {
@@ -35,6 +72,9 @@ export async function POST(req: Request) {
       });
     }
 
+    const requestId = createRequestId();
+    const requestStartedAt = nowMs();
+
     const body = await req.json();
     const question = body.question || body.message;
     const userId = body.userId || "default";
@@ -43,14 +83,30 @@ export async function POST(req: Request) {
       return Response.json({ error: "Pregunta inválida" }, { status: 400 });
     }
 
+    logPerf("chat", requestId, "request_start", {
+      question_chars: String(question).length,
+      history_turns: memory.get(userId)?.length ?? 0,
+    });
+
     if (!memory.has(userId)) {
       memory.set(userId, []);
     }
 
     const userHistory = memory.get(userId)!;
-    const historyText = userHistory.join("\n");
+    const {
+      text: historyText,
+      history_truncated,
+      history_lines_used,
+    } = buildHistoryForPrompt(userHistory);
 
-    const { context } = await retrieveContext(question);
+    const ragStartedAt = nowMs();
+    logPerf("chat", requestId, "retrieve_start");
+    const { context } = await retrieveContext(question, 6, requestId);
+    logPerf("chat", requestId, "retrieve_end", {
+      ms: elapsedMs(ragStartedAt),
+      context_chars: context.length,
+      no_relevant_context: !context || context.trim().length === 0,
+    });
 
     let finalContext = context;
 
@@ -63,6 +119,7 @@ export async function POST(req: Request) {
         ? finalContext.slice(0, MAX_CONTEXT_CHARS)
         : finalContext;
 
+    const promptStartedAt = nowMs();
     const prompt = `
 Eres un asistente inteligente del TESCHA.
 
@@ -87,25 +144,66 @@ ${question}
 Asistente:
 `;
 
+    logPerf("chat", requestId, "prompt_built", {
+      ms: elapsedMs(promptStartedAt),
+      prompt_chars: prompt.length,
+      context_chars: truncatedContext.length,
+      history_chars: historyText.length,
+      history_lines_used,
+      history_truncated,
+      context_truncated: finalContext.length > MAX_CONTEXT_CHARS,
+      no_relevant_context: !context || context.trim().length === 0,
+    });
+
     const encoder = new TextEncoder();
 
     const stream = new ReadableStream({
       async start(controller) {
+        let firstTokenLogged = false;
+        const streamStartedAt = nowMs();
+
         try {
-          const fullResponse = await streamModelResponse(prompt, (token) => {
-            controller.enqueue(encoder.encode(token));
+          logPerf("chat", requestId, "stream_start", {
+            ms_since_request: elapsedMs(requestStartedAt),
           });
+
+          const fullResponse = await streamModelResponse(
+            prompt,
+            (token) => {
+              if (!firstTokenLogged) {
+                firstTokenLogged = true;
+                logPerf("chat", requestId, "first_token", {
+                  ms_since_request: elapsedMs(requestStartedAt),
+                  ms_since_stream_start: elapsedMs(streamStartedAt),
+                });
+              }
+              controller.enqueue(encoder.encode(token));
+            },
+            { requestId }
+          );
 
           userHistory.push(`Usuario: ${question}`);
           userHistory.push(`Asistente: ${fullResponse}`);
 
-          if (userHistory.length > 20) {
-            memory.set(userId, userHistory.slice(-20));
+          if (userHistory.length > MAX_MEMORY_LINES) {
+            memory.set(userId, userHistory.slice(-MAX_MEMORY_LINES));
           }
+
+          logPerf("chat", requestId, "stream_end", {
+            ms_since_stream_start: elapsedMs(streamStartedAt),
+            response_chars: fullResponse.length,
+          });
+
+          logPerf("chat", requestId, "request_end", {
+            total_ms: elapsedMs(requestStartedAt),
+          });
 
           controller.close();
         } catch (err) {
           console.error(err);
+          logPerf("chat", requestId, "request_error", {
+            total_ms: elapsedMs(requestStartedAt),
+          });
           controller.error(err);
         }
       },

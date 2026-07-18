@@ -23,9 +23,10 @@ export const CHROMA_URL = trimTrailingSlash(
   readEnv("CHROMA_URL", "http://localhost:8000")
 );
 
+/** Default liviano para CPU local; en equipos potentes usa llama3 vía .env */
 export const OLLAMA_GENERATION_MODEL = readEnv(
   "OLLAMA_GENERATION_MODEL",
-  "llama3"
+  "llama3.2:1b"
 );
 
 export const OLLAMA_EMBEDDING_MODEL = readEnv(
@@ -33,10 +34,23 @@ export const OLLAMA_EMBEDDING_MODEL = readEnv(
   "nomic-embed-text"
 );
 
+/** Cuánto tiempo Ollama mantiene el modelo en memoria (p. ej. 30m, -1 = indefinido). */
+export const OLLAMA_KEEP_ALIVE = readEnv("OLLAMA_KEEP_ALIVE", "30m");
+
 export const CHROMA_COLLECTION_NAME = readEnv(
   "CHROMA_COLLECTION_NAME",
   "school_documents"
 );
+
+/**
+ * Umbral de distancia Chroma (L2). Con nomic-embed-text las distancias suelen
+ * estar en cientos (~200–300 en logs locales); un valor como 2.0 nunca matcheaba.
+ * Ajusta con RAG_MAX_DISTANCE si tu índice usa otra escala.
+ */
+const parsedRagMaxDistance = Number(readEnv("RAG_MAX_DISTANCE", "280"));
+export const RAG_MAX_DISTANCE = Number.isFinite(parsedRagMaxDistance)
+  ? parsedRagMaxDistance
+  : 280;
 
 /** Base URL de la API v2 de ChromaDB */
 export function getChromaApiUrl(): string {

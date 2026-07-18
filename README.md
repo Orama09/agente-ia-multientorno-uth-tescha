@@ -122,11 +122,35 @@ Edita `.env.local` si tus servicios no usan los puertos por defecto.
 |----------|-------------|----------------------|--------|
 | `OLLAMA_URL` | URL base de Ollama | `http://localhost:11434` | `http://ollama:11434` |
 | `CHROMA_URL` | URL base de ChromaDB | `http://localhost:8000` | `http://chroma:8000` |
-| `OLLAMA_GENERATION_MODEL` | Modelo de chat | `llama3` | `llama3` |
+| `OLLAMA_GENERATION_MODEL` | Modelo de chat | `llama3.2:1b` (recomendado en CPU; `llama3` en equipos potentes) | mismo vía `.env` |
 | `OLLAMA_EMBEDDING_MODEL` | Modelo de embeddings | `nomic-embed-text` | `nomic-embed-text` |
+| `OLLAMA_KEEP_ALIVE` | Tiempo que Ollama mantiene el modelo en memoria | `30m` | `30m` |
+| `RAG_MAX_DISTANCE` | Umbral L2 para chunks RAG (sin fallback ciego) | `280` | `280` |
 | `CHROMA_COLLECTION_NAME` | Colección RAG | `school_documents` | `school_documents` |
+| `NEXT_PUBLIC_AVATAR_PROVIDER` | Proveedor visual del avatar | `local-image` | `local-image` |
+| `NEXT_PUBLIC_TTS_PROVIDER` | Proveedor de voz (TTS) | `web-speech` | `web-speech` |
+| `NEXT_PUBLIC_VOICE_ENABLED_BY_DEFAULT` | Voz activa al cargar | `false` | `false` |
 
-La configuración centralizada vive en `src/lib/config.ts`.
+La configuración de Ollama/Chroma vive en `src/lib/config.ts`.
+La experiencia de avatar/voz vive en `src/lib/assistant/assistantExperienceConfig.ts`.
+
+---
+
+# 🎭 Avatar y voz
+
+El dock del asistente usa un **avatar por estados** y **voz opcional** (Web Speech API).
+
+| Variable | Default | Rol |
+|----------|---------|-----|
+| `NEXT_PUBLIC_AVATAR_PROVIDER` | `local-image` | Imágenes locales (default). Opcional: `threejs` |
+| `NEXT_PUBLIC_TTS_PROVIDER` | `web-speech` | TTS (`none` oculta el botón de voz) |
+| `NEXT_PUBLIC_VOICE_ENABLED_BY_DEFAULT` | `false` | Voz activa al cargar (si no hay preferencia en localStorage) |
+
+**Proveedor 3D experimental:** pon `NEXT_PUBLIC_AVATAR_PROVIDER=threejs` en `.env.local` (modelo en `public/models/avatar/avatar-tescha.glb`) y reinicia el servidor. Para volver a imágenes: `local-image`.
+
+Documentación técnica (mapeo de estados, calibración, auto-reset, checklist):
+
+→ **[docs/avatar-voice.md](docs/avatar-voice.md)**
 
 ---
 
@@ -136,7 +160,7 @@ Requisitos adicionales en local:
 
 1. Ollama en ejecución (`ollama serve`)
 2. ChromaDB en el puerto 8000 (p. ej. solo el servicio `chroma` de Docker, o una instancia local)
-3. Modelos descargados: `llama3` y `nomic-embed-text`
+3. Modelos descargados: `llama3.2:1b` (o `llama3`) y `nomic-embed-text`
 4. Archivo `.env.local` creado desde `.env.example`
 
 Indexar documentos (opcional, primera vez):
@@ -203,11 +227,13 @@ En desarrollo local, verifica que Ollama esté activo:
 
 ```bash
 ollama serve
-ollama pull llama3
+ollama pull llama3.2:1b
 ollama pull nomic-embed-text
+# Opcional en equipos potentes:
+# ollama pull llama3
 ```
 
-Los nombres de modelo deben coincidir con `OLLAMA_GENERATION_MODEL` y `OLLAMA_EMBEDDING_MODEL` en tu `.env.local`.
+Los nombres de modelo deben coincidir con `OLLAMA_GENERATION_MODEL` y `OLLAMA_EMBEDDING_MODEL` en tu `.env.local`. Para menos latencia en CPU local, usa `llama3.2:1b` y `OLLAMA_KEEP_ALIVE=30m`.
 
 ---
 

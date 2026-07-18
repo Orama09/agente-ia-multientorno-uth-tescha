@@ -1,130 +1,316 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, type ChangeEvent } from "react";
 import ReactMarkdown from "react-markdown";
-import { Mic, Paperclip, Send } from "lucide-react";
+import { Mic, Send, Volume2, VolumeX } from "lucide-react";
+import type { AvatarStateChangeHandler } from "@/types/avatar";
+import {
+  assistantExperience,
+  isWebSpeechTtsEnabled,
+} from "@/lib/assistant/assistantExperienceConfig";
+import { useSpeechSynthesis } from "@/lib/speech/useSpeechSynthesis";
+import { StopSpeechButton } from "./SpeechControls";
 
-export default function ChatPanel() {
-  const [messages, setMessages] = useState<any[]>([]);
+type ChatMessage = {
+  role: "user" | "assistant";
+  content: string;
+};
+
+type ChatPanelProps = {
+  /** Solo emite AvatarState; timings y anti-carreras viven en AgentDock. */
+  onAvatarStateChange?: AvatarStateChangeHandler;
+};
+
+const ERROR_MESSAGE = "❌ Error al procesar la consulta";
+const FILE_ERROR_MESSAGE = "❌ Error al procesar archivo";
+
+export default function ChatPanel({ onAvatarStateChange }: ChatPanelProps) {
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // 🔥 referencia para auto-scroll
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  /** Generación de operación para ignorar resultados de requests obsoletas. */
+  const operationIdRef = useRef(0);
 
-  // =====================================
-  // 💬 AUTO SCROLL
-  // =====================================
+  const ttsAvailable = isWebSpeechTtsEnabled();
+
+  const {
+    isSupported: speechSupported,
+    isEnabled: speechEnabled,
+    isSpeaking: ttsSpeaking,
+    setEnabled: setSpeechEnabled,
+    speak,
+    cancel: cancelSpeech,
+  } = useSpeechSynthesis({
+    enabledByDefault: assistantExperience.voiceEnabledByDefault,
+    providerActive: ttsAvailable,
+  });
+
+  const showSpeechToggle = ttsAvailable;
+
+  const setAvatar = (state: Parameters<AvatarStateChangeHandler>[0]) => {
+    onAvatarStateChange?.(state);
+  };
+
+  const replaceOrAppendAssistant = (content: string) => {
+    setMessages((prev) => {
+      const last = prev[prev.length - 1];
+      if (last?.role === "assistant") {
+        const updated = [...prev];
+        updated[updated.length - 1] = { role: "assistant", content };
+        return updated;
+      }
+      return [...prev, { role: "assistant", content }];
+    });
+  };
+
+  /**
+   * Tras respuesta OK: con voz → speaking + TTS → happy;
+   * sin voz → happy inmediato.
+   */
+  const finishSuccessfulReply = (text: string, operationId: number) => {
+    if (operationId !== operationIdRef.current) return;
+
+    if (!speechEnabled) {
+      setAvatar("happy");
+      return;
+    }
+
+    // Mantener speaking mientras el navegador lee la respuesta final
+    setAvatar("speaking");
+
+    const started = speak(text, {
+      onEnd: () => {
+        if (operationId !== operationIdRef.current) return;
+        setAvatar("happy");
+      },
+      onError: () => {
+        if (operationId !== operationIdRef.current) return;
+        setAvatar("happy");
+      },
+    });
+
+    if (!started) {
+      setAvatar("happy");
+    }
+  };
+
+  const failReply = (message: string, operationId: number) => {
+    if (operationId !== operationIdRef.current) return;
+    cancelSpeech();
+    replaceOrAppendAssistant(message);
+    setAvatar("error");
+  };
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // =====================================
-  // 💬 ENVIAR MENSAJE (STREAMING)
-  // =====================================
   const sendMessage = async () => {
     if (!input.trim() || loading) return;
 
-    const userMessage = { role: "user", content: input };
-    setMessages(prev => [...prev, userMessage]);
+    const question = input;
+    const history = messages;
+    const operationId = ++operationIdRef.current;
+
+    cancelSpeech();
+    setMessages((prev) => [...prev, { role: "user", content: question }]);
     setInput("");
     setLoading(true);
+    setAvatar("thinking");
 
     try {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question: input, history: messages }),
+        body: JSON.stringify({ question, history }),
       });
 
-      if (!res.body) throw new Error("No hay stream");
+      if (operationId !== operationIdRef.current) return;
+
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+
+      if (!res.body) {
+        throw new Error("No hay stream");
+      }
 
       const reader = res.body.getReader();
       const decoder = new TextDecoder("utf-8");
       let botMessage = "";
+      let speakingStarted = false;
 
-      // Crear mensaje vacío
-      setMessages(prev => [...prev, { role: "assistant", content: "" }]);
+      setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-        const chunk = decoder.decode(value);
+
+        if (operationId !== operationIdRef.current) {
+          try {
+            await reader.cancel();
+          } catch {
+            // ignore
+          }
+          return;
+        }
+
+        const chunk = decoder.decode(value, { stream: true });
+        if (!chunk) continue;
+
         botMessage += chunk;
 
-        setMessages(prev => {
+        if (!speakingStarted && botMessage.trim().length > 0) {
+          speakingStarted = true;
+          setAvatar("speaking");
+        }
+
+        setMessages((prev) => {
           const updated = [...prev];
-          updated[updated.length - 1].content = botMessage;
+          updated[updated.length - 1] = {
+            role: "assistant",
+            content: botMessage,
+          };
           return updated;
         });
       }
+
+      if (operationId !== operationIdRef.current) return;
+
+      if (!botMessage.trim()) {
+        failReply(ERROR_MESSAGE, operationId);
+      } else {
+        finishSuccessfulReply(botMessage, operationId);
+      }
     } catch (error) {
+      if (operationId !== operationIdRef.current) return;
       console.error("Error:", error);
-      setMessages(prev => [
-        ...prev,
-        { role: "assistant", content: "❌ Error al procesar la consulta" },
-      ]);
+      failReply(ERROR_MESSAGE, operationId);
     } finally {
-      setLoading(false);
+      if (operationId === operationIdRef.current) {
+        setLoading(false);
+      }
     }
   };
 
-  // =====================================
-  // 🎤 VOZ A TEXTO
-  // =====================================
   const startVoiceInput = () => {
-    const SpeechRecognition =
-      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (loading || ttsSpeaking) return;
 
-    if (!SpeechRecognition) {
+    type SpeechRecognitionLike = {
+      lang: string;
+      start: () => void;
+      onresult: ((event: {
+        results: ArrayLike<ArrayLike<{ transcript: string }>>;
+      }) => void) | null;
+      onerror: (() => void) | null;
+      onend: (() => void) | null;
+    };
+
+    const w = window as Window & {
+      SpeechRecognition?: new () => SpeechRecognitionLike;
+      webkitSpeechRecognition?: new () => SpeechRecognitionLike;
+    };
+
+    const SpeechRecognitionCtor =
+      w.SpeechRecognition ?? w.webkitSpeechRecognition;
+
+    if (!SpeechRecognitionCtor) {
       alert("Tu navegador no soporta reconocimiento de voz");
       return;
     }
 
-    const recognition = new SpeechRecognition();
-    recognition.lang = "es-MX";
-    recognition.start();
+    setAvatar("listening");
 
-    recognition.onresult = (event: any) => {
+    const recognition = new SpeechRecognitionCtor();
+    recognition.lang = "es-MX";
+
+    recognition.onresult = (event) => {
       const transcript = event.results[0][0].transcript;
       setInput(transcript);
     };
+
+    recognition.onerror = () => {
+      if (!loading) setAvatar("idle");
+    };
+
+    recognition.onend = () => {
+      if (!loading) setAvatar("idle");
+    };
+
+    recognition.start();
   };
 
-  // =====================================
-  // 📎 SUBIR ARCHIVO
-  // =====================================
-  const handleFileUpload = async (e: any) => {
-    const file = e.target.files[0];
+  const handleFileUpload = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
     if (!file) return;
+
+    const operationId = ++operationIdRef.current;
+    cancelSpeech();
     setLoading(true);
+    setAvatar("thinking");
 
     const formData = new FormData();
     formData.append("file", file);
 
     try {
       const res = await fetch("/api/chat", { method: "POST", body: formData });
-      const data = await res.json();
+      if (operationId !== operationIdRef.current) return;
 
-      setMessages(prev => [
-        ...prev,
-        { role: "assistant", content: data.response },
-      ]);
-    } catch (error) {
-      setMessages(prev => [
-        ...prev,
-        { role: "assistant", content: "❌ Error al procesar archivo" },
-      ]);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+      const data = (await res.json()) as { response?: string };
+      const content = data.response?.trim() ?? "";
+
+      if (!content) {
+        failReply(FILE_ERROR_MESSAGE, operationId);
+      } else {
+        setMessages((prev) => [
+          ...prev,
+          { role: "assistant", content: data.response ?? "" },
+        ]);
+        finishSuccessfulReply(data.response ?? "", operationId);
+      }
+    } catch {
+      if (operationId !== operationIdRef.current) return;
+      failReply(FILE_ERROR_MESSAGE, operationId);
     } finally {
-      setLoading(false);
+      if (operationId === operationIdRef.current) {
+        setLoading(false);
+      }
+      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
 
+  const handleSpeechToggle = () => {
+    if (!speechSupported) return;
+
+    // Desactivar mientras lee → cancelar y cerrar flujo con happy
+    if (speechEnabled && ttsSpeaking) {
+      cancelSpeech();
+      setSpeechEnabled(false);
+      setAvatar("happy");
+      return;
+    }
+
+    setSpeechEnabled(!speechEnabled);
+  };
+
+  /** Detener lectura: cancela TTS y cierra flujo del avatar con happy → idle. */
+  const handleStopSpeech = () => {
+    cancelSpeech();
+    setAvatar("happy");
+  };
+
+  const speechLabel = !speechSupported
+    ? "Voz no disponible en este navegador"
+    : speechEnabled
+      ? "Voz activada — clic para desactivar"
+      : "Voz desactivada — clic para activar";
+
   return (
     <div className="flex flex-col h-full bg-gray-50">
-      
-      {/* MENSAJES */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.map((msg, i) => (
           <div
@@ -141,51 +327,86 @@ export default function ChatPanel() {
           </div>
         ))}
 
-        {/* 🔥 ANCLA PARA AUTO-SCROLL */}
         <div ref={messagesEndRef} />
       </div>
 
-      {/* INPUT */}
-      <div className="sticky bottom-0 z-10 bg-white/90 backdrop-blur-md border-t p-3 flex items-center gap-2">
-        
-        <button
-          onClick={() => fileInputRef.current?.click()}
-          className="p-2 rounded-lg hover:bg-gray-100"
-        >
-          <Paperclip size={18} />
-        </button>
+      <div className="sticky bottom-0 z-10 bg-white/90 backdrop-blur-md border-t p-3">
+        <div className="flex items-center gap-2">
+          {/* Zona izquierda: Detener solo mientras TTS habla (antes: clip de archivo) */}
+          <div className="shrink-0 min-w-[2.25rem] flex items-center justify-start">
+            {ttsSpeaking ? (
+              <StopSpeechButton onStop={handleStopSpeech} />
+            ) : (
+              <span className="w-9" aria-hidden />
+            )}
+          </div>
 
-        <input
-          type="file"
-          ref={fileInputRef}
-          onChange={handleFileUpload}
-          className="hidden"
-          accept=".pdf,.txt"
-        />
+          {/* Upload oculto: lógica conservada, sin acceso en UI */}
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileUpload}
+            className="hidden"
+            accept=".pdf,.txt"
+            tabIndex={-1}
+            aria-hidden
+          />
 
-        <input
-          className="flex-1 border rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-green-400"
-          placeholder="Escribe o dicta tu pregunta..."
-          value={input}
-          onChange={e => setInput(e.target.value)}
-          onKeyDown={e => e.key === "Enter" && sendMessage()}
-        />
+          <input
+            className="flex-1 min-w-0 border rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-green-400"
+            placeholder="Escribe o dicta tu pregunta..."
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && sendMessage()}
+            disabled={loading}
+          />
 
-        <button
-          onClick={startVoiceInput}
-          className="p-2 rounded-lg hover:bg-gray-100"
-        >
-          <Mic size={18} />
-        </button>
+          {showSpeechToggle && (
+            <button
+              type="button"
+              onClick={handleSpeechToggle}
+              disabled={!speechSupported}
+              className={`p-2 rounded-lg transition-colors shrink-0 ${
+                !speechSupported
+                  ? "text-gray-300 cursor-not-allowed"
+                  : speechEnabled
+                    ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
+                    : "text-gray-600 hover:bg-gray-100"
+              }`}
+              aria-label={speechLabel}
+              aria-pressed={speechSupported ? speechEnabled : undefined}
+              title={speechLabel}
+            >
+              {speechEnabled && speechSupported ? (
+                <Volume2 size={18} />
+              ) : (
+                <VolumeX size={18} />
+              )}
+            </button>
+          )}
 
-        <button
-          onClick={sendMessage}
-          disabled={loading}
-          className="bg-green-500 text-white px-3 py-2 rounded-xl hover:bg-green-600 disabled:opacity-50"
-        >
-          <Send size={18} />
-        </button>
+          <button
+            type="button"
+            onClick={startVoiceInput}
+            className="p-2 rounded-lg hover:bg-gray-100 shrink-0"
+            disabled={loading || ttsSpeaking}
+            aria-label="Dictar pregunta"
+            title="Dictar pregunta"
+          >
+            <Mic size={18} />
+          </button>
 
+          <button
+            type="button"
+            onClick={sendMessage}
+            disabled={loading}
+            className="bg-green-500 text-white px-3 py-2 rounded-xl hover:bg-green-600 disabled:opacity-50 shrink-0"
+            aria-label="Enviar mensaje"
+            title="Enviar"
+          >
+            <Send size={18} />
+          </button>
+        </div>
       </div>
     </div>
   );

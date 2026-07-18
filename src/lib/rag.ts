@@ -1,12 +1,15 @@
 import {
   CHROMA_COLLECTION_NAME,
   OLLAMA_EMBEDDING_MODEL,
+  OLLAMA_KEEP_ALIVE,
   OLLAMA_URL,
+  RAG_MAX_DISTANCE,
   chromaPaths,
 } from "./config";
+import { elapsedMs, logPerf, nowMs } from "./performanceLog";
 
-const MAX_DISTANCE = 2.0;
-const MAX_CHUNKS = 6;
+/** Máximo de chunks al prompt (menos contexto = menos prefill en Ollama). */
+const MAX_CHUNKS = 3;
 
 const embeddingCache = new Map<string, number[]>();
 
@@ -39,8 +42,21 @@ async function getCollectionId(): Promise<string> {
   return collection.id;
 }
 
-async function createEmbedding(text: string): Promise<number[] | null> {
+async function createEmbedding(
+  text: string,
+  requestId?: string
+): Promise<number[] | null> {
+  const startedAt = nowMs();
+
   if (embeddingCache.has(text)) {
+    if (requestId) {
+      logPerf("rag", requestId, "embedding", {
+        ms: elapsedMs(startedAt),
+        cache_hit: true,
+        input_chars: text.length,
+        model: OLLAMA_EMBEDDING_MODEL,
+      });
+    }
     return embeddingCache.get(text)!;
   }
 
@@ -53,11 +69,19 @@ async function createEmbedding(text: string): Promise<number[] | null> {
       body: JSON.stringify({
         model: OLLAMA_EMBEDDING_MODEL,
         prompt: text,
+        keep_alive: OLLAMA_KEEP_ALIVE,
       }),
     });
 
     if (!res.ok) {
       console.error("❌ Error creando embedding: status", res.status);
+      if (requestId) {
+        logPerf("rag", requestId, "embedding_error", {
+          ms: elapsedMs(startedAt),
+          cache_hit: false,
+          status: res.status,
+        });
+      }
       return null;
     }
 
@@ -69,20 +93,54 @@ async function createEmbedding(text: string): Promise<number[] | null> {
     const embedding =
       data.embedding || data?.data?.[0]?.embedding || null;
 
-    if (!embedding) return null;
+    if (!embedding) {
+      if (requestId) {
+        logPerf("rag", requestId, "embedding_error", {
+          ms: elapsedMs(startedAt),
+          cache_hit: false,
+          reason: "empty",
+        });
+      }
+      return null;
+    }
 
     const parsed = embedding.map((v) => Number(v));
 
     if (parsed.length !== 768) {
       console.log("⚠️ Dimensión incorrecta:", parsed.length);
+      if (requestId) {
+        logPerf("rag", requestId, "embedding_error", {
+          ms: elapsedMs(startedAt),
+          cache_hit: false,
+          reason: "bad_dims",
+          dims: parsed.length,
+        });
+      }
       return null;
     }
 
     embeddingCache.set(text, parsed);
 
+    if (requestId) {
+      logPerf("rag", requestId, "embedding", {
+        ms: elapsedMs(startedAt),
+        cache_hit: false,
+        input_chars: text.length,
+        model: OLLAMA_EMBEDDING_MODEL,
+        keep_alive: OLLAMA_KEEP_ALIVE,
+      });
+    }
+
     return parsed;
   } catch (error) {
     console.error("❌ Error creando embedding:", error);
+    if (requestId) {
+      logPerf("rag", requestId, "embedding_error", {
+        ms: elapsedMs(startedAt),
+        cache_hit: false,
+        reason: "exception",
+      });
+    }
     return null;
   }
 }
@@ -147,10 +205,25 @@ export async function addToRAG(
 
 export async function retrieveContext(
   userQuery: string,
-  _topK = 6
+  _topK = 6,
+  requestId?: string
 ): Promise<RetrieveResult> {
+  const ragStartedAt = nowMs();
+
   try {
+    if (requestId) {
+      logPerf("rag", requestId, "retrieve_start", {
+        query_chars: userQuery.length,
+      });
+    }
+
+    const collectionStartedAt = nowMs();
     const collectionId = await getCollectionId();
+    if (requestId) {
+      logPerf("rag", requestId, "get_collection_id", {
+        ms: elapsedMs(collectionStartedAt),
+      });
+    }
 
     const enhancedQuery = `
 El usuario está haciendo una pregunta sobre información institucional.
@@ -161,11 +234,23 @@ ${userQuery}
 Busca información relevante aunque la pregunta sea general.
 `;
 
-    const embedding = await createEmbedding(enhancedQuery);
+    const embedding = await createEmbedding(enhancedQuery, requestId);
     if (!embedding) {
+      if (requestId) {
+        logPerf("rag", requestId, "retrieve_end", {
+          total_ms: elapsedMs(ragStartedAt),
+          results: 0,
+          chunks_used: 0,
+          context_chars: 0,
+          used_fallback: false,
+          no_relevant_context: true,
+          reason: "no_embedding",
+        });
+      }
       return { context: "", sources: [] };
     }
 
+    const chromaStartedAt = nowMs();
     const chromaRes = await fetch(`${chromaPaths.collection(collectionId)}/query`, {
       method: "POST",
       headers: {
@@ -178,8 +263,26 @@ Busca información relevante aunque la pregunta sea general.
       }),
     });
 
+    if (requestId) {
+      logPerf("rag", requestId, "chroma_query", {
+        ms: elapsedMs(chromaStartedAt),
+        status: chromaRes.status,
+      });
+    }
+
     if (!chromaRes.ok) {
       console.error("❌ Error RAG: Chroma status", chromaRes.status);
+      if (requestId) {
+        logPerf("rag", requestId, "retrieve_end", {
+          total_ms: elapsedMs(ragStartedAt),
+          results: 0,
+          chunks_used: 0,
+          context_chars: 0,
+          used_fallback: false,
+          no_relevant_context: true,
+          reason: "chroma_error",
+        });
+      }
       return { context: "", sources: [] };
     }
 
@@ -196,6 +299,17 @@ Busca información relevante aunque la pregunta sea general.
     console.log("📊 Distancias:", distances);
 
     if (!documents.length) {
+      if (requestId) {
+        logPerf("rag", requestId, "retrieve_end", {
+          total_ms: elapsedMs(ragStartedAt),
+          results: 0,
+          chunks_used: 0,
+          context_chars: 0,
+          used_fallback: false,
+          no_relevant_context: true,
+          reason: "no_documents",
+        });
+      }
       return { context: "", sources: [] };
     }
 
@@ -205,13 +319,30 @@ Busca información relevante aunque la pregunta sea general.
       score: distances[i] ?? 999,
     }));
 
-    let filtered = results
-      .filter((r) => r.text.length > 0 && r.score < MAX_DISTANCE)
+    // Sin fallback ciego: si nada pasa el umbral, contexto vacío
+    // (el chat usará "Información limitada disponible.") en lugar de
+    // meter chunks irrelevantes que inflan el prompt.
+    const filtered = results
+      .filter((r) => r.text.length > 0 && r.score < RAG_MAX_DISTANCE)
       .sort((a, b) => a.score - b.score);
 
     if (!filtered.length) {
-      console.log("⚠️ Usando fallback sin filtro...");
-      filtered = results.sort((a, b) => a.score - b.score);
+      console.log(
+        `⚠️ Sin contexto relevante (ninguna distancia < ${RAG_MAX_DISTANCE}); no se usa fallback ciego`
+      );
+      if (requestId) {
+        logPerf("rag", requestId, "retrieve_end", {
+          total_ms: elapsedMs(ragStartedAt),
+          results: results.length,
+          chunks_used: 0,
+          context_chars: 0,
+          used_fallback: false,
+          no_relevant_context: true,
+          max_distance: RAG_MAX_DISTANCE,
+          best_distance: results[0]?.score ?? -1,
+        });
+      }
+      return { context: "", sources: [] };
     }
 
     const bestChunks = filtered.slice(0, MAX_CHUNKS);
@@ -224,9 +355,32 @@ Busca información relevante aunque la pregunta sea general.
       preview: r.text.slice(0, 120) + "...",
     }));
 
+    if (requestId) {
+      logPerf("rag", requestId, "retrieve_end", {
+        total_ms: elapsedMs(ragStartedAt),
+        results: results.length,
+        chunks_used: bestChunks.length,
+        context_chars: context.length,
+        used_fallback: false,
+        no_relevant_context: false,
+        max_distance: RAG_MAX_DISTANCE,
+      });
+    }
+
     return { context, sources };
   } catch (error) {
     console.error("❌ Error RAG:", error);
+    if (requestId) {
+      logPerf("rag", requestId, "retrieve_end", {
+        total_ms: elapsedMs(ragStartedAt),
+        results: 0,
+        chunks_used: 0,
+        context_chars: 0,
+        used_fallback: false,
+        no_relevant_context: true,
+        reason: "exception",
+      });
+    }
     return { context: "", sources: [] };
   }
 }

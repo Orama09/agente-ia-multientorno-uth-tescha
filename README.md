@@ -178,9 +178,11 @@ ollama pull llama3
 
 **Angélica Rubí Amaro Téllez**
 
-Tecnológico de Estudios Superiores de Chalco
+Tecnológico de Estudios Superiores de Chalco en colaboración con la Universidad Tecnologica de Honduras
 
 Ingeniería Informática
+
+
 
 ---
 

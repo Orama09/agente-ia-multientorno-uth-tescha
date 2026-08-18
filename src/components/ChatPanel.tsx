@@ -29,11 +29,13 @@ export default function ChatPanel({ onAvatarStateChange }: ChatPanelProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [isListening, setIsListening] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   /** Contenedor scrolleable interno (nunca scrollIntoView / window). */
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   /** Generación de operación para ignorar resultados de requests obsoletas. */
   const operationIdRef = useRef(0);
+  const recognitionRef = useRef<{ stop: () => void } | null>(null);
 
   const ttsAvailable = isWebSpeechTtsEnabled();
 
@@ -241,12 +243,29 @@ export default function ChatPanel({ onAvatarStateChange }: ChatPanelProps) {
     }
   };
 
+  const stopVoiceInput = () => {
+    try {
+      recognitionRef.current?.stop();
+    } catch {
+      // ignore
+    }
+    recognitionRef.current = null;
+    setIsListening(false);
+    if (!loading) setAvatar("idle");
+  };
+
   const startVoiceInput = () => {
     if (loading || ttsSpeaking) return;
+
+    if (isListening) {
+      stopVoiceInput();
+      return;
+    }
 
     type SpeechRecognitionLike = {
       lang: string;
       start: () => void;
+      stop: () => void;
       onresult: ((event: {
         results: ArrayLike<ArrayLike<{ transcript: string }>>;
       }) => void) | null;
@@ -268,9 +287,11 @@ export default function ChatPanel({ onAvatarStateChange }: ChatPanelProps) {
     }
 
     setAvatar("listening");
+    setIsListening(true);
 
     const recognition = new SpeechRecognitionCtor();
     recognition.lang = "es-MX";
+    recognitionRef.current = recognition;
 
     recognition.onresult = (event) => {
       const transcript = event.results[0][0].transcript;
@@ -278,14 +299,24 @@ export default function ChatPanel({ onAvatarStateChange }: ChatPanelProps) {
     };
 
     recognition.onerror = () => {
+      recognitionRef.current = null;
+      setIsListening(false);
       if (!loading) setAvatar("idle");
     };
 
     recognition.onend = () => {
+      recognitionRef.current = null;
+      setIsListening(false);
       if (!loading) setAvatar("idle");
     };
 
-    recognition.start();
+    try {
+      recognition.start();
+    } catch {
+      recognitionRef.current = null;
+      setIsListening(false);
+      if (!loading) setAvatar("idle");
+    }
   };
 
   const handleFileUpload = async (e: ChangeEvent<HTMLInputElement>) => {
@@ -377,6 +408,19 @@ export default function ChatPanel({ onAvatarStateChange }: ChatPanelProps) {
       </div>
 
       <div className="shrink-0 z-10 bg-white/90 backdrop-blur-md border-t p-3">
+        {isListening && (
+          <div
+            className="mb-2 flex items-center justify-center gap-2 rounded-lg bg-red-50 border border-red-200 px-3 py-1.5 text-xs font-medium text-red-700"
+            role="status"
+            aria-live="polite"
+          >
+            <span className="relative flex h-2.5 w-2.5">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
+              <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-red-500" />
+            </span>
+            Escuchando… habla ahora. Clic otra vez en el micrófono para cancelar.
+          </div>
+        )}
         <div className="flex items-center gap-2">
           <div className="shrink-0 min-w-[2.25rem] flex items-center justify-start">
             {ttsSpeaking ? (
@@ -397,12 +441,20 @@ export default function ChatPanel({ onAvatarStateChange }: ChatPanelProps) {
           />
 
           <input
-            className="flex-1 min-w-0 border rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-green-400"
-            placeholder="Escribe o dicta tu pregunta..."
+            className={`flex-1 min-w-0 border rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 ${
+              isListening
+                ? "border-red-300 ring-2 ring-red-200 bg-red-50/40"
+                : "focus:ring-green-400"
+            }`}
+            placeholder={
+              isListening
+                ? "Escuchando… habla ahora"
+                : "Escribe o dicta tu pregunta..."
+            }
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && sendMessage()}
-            disabled={loading}
+            disabled={loading || isListening}
           />
 
           {showSpeechToggle && (
@@ -432,10 +484,19 @@ export default function ChatPanel({ onAvatarStateChange }: ChatPanelProps) {
           <button
             type="button"
             onClick={startVoiceInput}
-            className="p-2 rounded-lg hover:bg-gray-100 shrink-0"
+            className={`p-2 rounded-lg shrink-0 transition-colors ${
+              isListening
+                ? "bg-red-500 text-white hover:bg-red-600 animate-pulse"
+                : "hover:bg-gray-100 text-gray-700"
+            }`}
             disabled={loading || ttsSpeaking}
-            aria-label="Dictar pregunta"
-            title="Dictar pregunta"
+            aria-label={isListening ? "Dejar de escuchar" : "Dictar pregunta"}
+            aria-pressed={isListening}
+            title={
+              isListening
+                ? "Escuchando — clic para cancelar"
+                : "Dictar pregunta"
+            }
           >
             <Mic size={18} />
           </button>

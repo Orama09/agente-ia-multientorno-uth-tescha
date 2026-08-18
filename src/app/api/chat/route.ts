@@ -1,6 +1,6 @@
 import { retrieveContext, addToRAG } from "@/lib/rag";
 import { streamModelResponse } from "@/lib/ollama";
-import { getCannedReply } from "@/lib/institutionalReplies";
+import { getCannedReply, getNoContextReply } from "@/lib/institutionalReplies";
 import {
   createRequestId,
   elapsedMs,
@@ -22,6 +22,38 @@ const MAX_HISTORY_CHARS = 1400;
 const MAX_MEMORY_LINES = 20;
 
 const memory = new Map<string, string[]>();
+
+function respondPlain(
+  text: string,
+  requestId: string,
+  requestStartedAt: number,
+  userHistory: string[],
+  userId: string,
+  question: string,
+  reason: string
+): Response {
+  logPerf("chat", requestId, "canned_reply", {
+    chars: text.length,
+    skipped_ollama: true,
+    reason,
+  });
+
+  userHistory.push(`Usuario: ${question}`);
+  userHistory.push(`Asistente: ${text}`);
+  if (userHistory.length > MAX_MEMORY_LINES) {
+    memory.set(userId, userHistory.slice(-MAX_MEMORY_LINES));
+  }
+
+  logPerf("chat", requestId, "request_end", {
+    total_ms: elapsedMs(requestStartedAt),
+  });
+
+  return new Response(text, {
+    headers: {
+      "Content-Type": "text/plain; charset=utf-8",
+    },
+  });
+}
 
 function buildHistoryForPrompt(history: string[]): {
   text: string;
@@ -102,26 +134,15 @@ export async function POST(req: Request) {
 
     const canned = getCannedReply(String(question));
     if (canned) {
-      logPerf("chat", requestId, "canned_reply", {
-        chars: canned.length,
-        skipped_ollama: true,
-      });
-
-      userHistory.push(`Usuario: ${question}`);
-      userHistory.push(`Asistente: ${canned}`);
-      if (userHistory.length > MAX_MEMORY_LINES) {
-        memory.set(userId, userHistory.slice(-MAX_MEMORY_LINES));
-      }
-
-      logPerf("chat", requestId, "request_end", {
-        total_ms: elapsedMs(requestStartedAt),
-      });
-
-      return new Response(canned, {
-        headers: {
-          "Content-Type": "text/plain; charset=utf-8",
-        },
-      });
+      return respondPlain(
+        canned,
+        requestId,
+        requestStartedAt,
+        userHistory,
+        userId,
+        question,
+        "topic_match"
+      );
     }
 
     const ragStartedAt = nowMs();
@@ -136,22 +157,32 @@ export async function POST(req: Request) {
     const hasRelevantContext =
       Boolean(context) && context.trim().length >= 20;
 
-    const truncatedContext = hasRelevantContext
-      ? context.length > MAX_CONTEXT_CHARS
+    if (!hasRelevantContext) {
+      return respondPlain(
+        getNoContextReply(),
+        requestId,
+        requestStartedAt,
+        userHistory,
+        userId,
+        question,
+        "no_rag_context"
+      );
+    }
+
+    const truncatedContext =
+      context.length > MAX_CONTEXT_CHARS
         ? context.slice(0, MAX_CONTEXT_CHARS)
-        : context
-      : "";
+        : context;
 
     const promptStartedAt = nowMs();
-    const prompt = hasRelevantContext
-      ? `
+    const prompt = `
 Eres el asistente virtual del TESCHA (Tecnológico de Estudios Superiores de Chalco).
 
 Responde en español, de forma breve y clara.
 
 Reglas estrictas:
 - Usa SOLO hechos que estén en el bloque "Información" y que respondan a la pregunta.
-- Si la información habla de otro tema (por ejemplo documentos de inscripción cuando preguntan por convocatorias), NO la uses. Di que no tienes ese dato y sugiere revisar Avisos Institucionales en el portal.
+- Si la información habla de otro tema, NO la uses.
 - NO inventes fechas, requisitos, listas de papeles, costos ni trámites.
 - NO copies listas enteras si no responden la pregunta.
 - NO digas que eres un modelo ni menciones "contexto" o "documentos".
@@ -159,25 +190,6 @@ Reglas estrictas:
 
 Información:
 ${truncatedContext}
-
-Conversación previa:
-${historyText}
-
-Pregunta del usuario:
-${question}
-
-Respuesta:
-`
-      : `
-Eres el asistente virtual del TESCHA (Tecnológico de Estudios Superiores de Chalco).
-
-Responde en español, breve y amable. Escribe solo la respuesta, sin prefijos.
-
-Reglas estrictas:
-- No tienes un extracto de documentos para esta pregunta.
-- Orienta al usuario a Avisos Institucionales o al botón «Ver convocatoria» del portal.
-- NO inventes requisitos, documentos, fechas ni listas.
-- NO escribas la palabra Asistente ni copies la pregunta mal escrita.
 
 Conversación previa:
 ${historyText}
@@ -195,8 +207,8 @@ Respuesta:
       history_chars: historyText.length,
       history_lines_used,
       history_truncated,
-      context_truncated: hasRelevantContext && context.length > MAX_CONTEXT_CHARS,
-      no_relevant_context: !hasRelevantContext,
+      context_truncated: context.length > MAX_CONTEXT_CHARS,
+      no_relevant_context: false,
     });
 
     const encoder = new TextEncoder();

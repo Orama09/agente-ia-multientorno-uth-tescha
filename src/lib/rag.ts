@@ -3,6 +3,7 @@ import {
   OLLAMA_EMBEDDING_MODEL,
   OLLAMA_KEEP_ALIVE,
   OLLAMA_URL,
+  RAG_DISTANCE_MARGIN,
   RAG_MAX_DISTANCE,
   chromaPaths,
 } from "./config";
@@ -10,6 +11,15 @@ import { elapsedMs, logPerf, nowMs } from "./performanceLog";
 
 /** Máximo de chunks al prompt (menos contexto = menos prefill en Ollama). */
 const MAX_CHUNKS = 3;
+
+const TRIVIAL_QUERY =
+  /^(hola|buenas|buen[oa]s?\s+(d[ií]as|tardes|noches)|qu[eé] tal|hey|hi|hello|saludos)[\s!.,?¿¡]*$/i;
+
+function isTrivialQuery(query: string): boolean {
+  const text = query.trim();
+  if (!text) return true;
+  return TRIVIAL_QUERY.test(text);
+}
 
 const embeddingCache = new Map<string, number[]>();
 
@@ -217,6 +227,21 @@ export async function retrieveContext(
       });
     }
 
+    if (isTrivialQuery(userQuery)) {
+      if (requestId) {
+        logPerf("rag", requestId, "retrieve_end", {
+          total_ms: elapsedMs(ragStartedAt),
+          results: 0,
+          chunks_used: 0,
+          context_chars: 0,
+          used_fallback: false,
+          no_relevant_context: true,
+          skipped_greeting: true,
+        });
+      }
+      return { context: "", sources: [] };
+    }
+
     const collectionStartedAt = nowMs();
     const collectionId = await getCollectionId();
     if (requestId) {
@@ -225,16 +250,8 @@ export async function retrieveContext(
       });
     }
 
-    const enhancedQuery = `
-El usuario está haciendo una pregunta sobre información institucional.
-
-Pregunta:
-${userQuery}
-
-Busca información relevante aunque la pregunta sea general.
-`;
-
-    const embedding = await createEmbedding(enhancedQuery, requestId);
+    // Embedir solo la pregunta: el texto envoltorio sesgaba a chunks genéricos.
+    const embedding = await createEmbedding(userQuery.trim(), requestId);
     if (!embedding) {
       if (requestId) {
         logPerf("rag", requestId, "retrieve_end", {
@@ -319,16 +336,21 @@ Busca información relevante aunque la pregunta sea general.
       score: distances[i] ?? 999,
     }));
 
-    // Sin fallback ciego: si nada pasa el umbral, contexto vacío
-    // (el chat usará "Información limitada disponible.") en lugar de
-    // meter chunks irrelevantes que inflan el prompt.
-    const filtered = results
-      .filter((r) => r.text.length > 0 && r.score < RAG_MAX_DISTANCE)
+    // Sin fallback ciego: umbral absoluto + margen respecto al mejor match.
+    const ranked = results
+      .filter((r) => r.text.length > 0)
       .sort((a, b) => a.score - b.score);
+
+    const bestDistance = ranked[0]?.score ?? 999;
+    const filtered = ranked.filter(
+      (r) =>
+        r.score < RAG_MAX_DISTANCE &&
+        r.score <= bestDistance + RAG_DISTANCE_MARGIN
+    );
 
     if (!filtered.length) {
       console.log(
-        `⚠️ Sin contexto relevante (ninguna distancia < ${RAG_MAX_DISTANCE}); no se usa fallback ciego`
+        `⚠️ Sin contexto relevante (mejor=${bestDistance.toFixed(1)}, umbral=${RAG_MAX_DISTANCE}); no se usa fallback ciego`
       );
       if (requestId) {
         logPerf("rag", requestId, "retrieve_end", {
@@ -339,7 +361,8 @@ Busca información relevante aunque la pregunta sea general.
           used_fallback: false,
           no_relevant_context: true,
           max_distance: RAG_MAX_DISTANCE,
-          best_distance: results[0]?.score ?? -1,
+          distance_margin: RAG_DISTANCE_MARGIN,
+          best_distance: Number(bestDistance.toFixed(2)),
         });
       }
       return { context: "", sources: [] };
@@ -364,6 +387,9 @@ Busca información relevante aunque la pregunta sea general.
         used_fallback: false,
         no_relevant_context: false,
         max_distance: RAG_MAX_DISTANCE,
+        distance_margin: RAG_DISTANCE_MARGIN,
+        best_distance: Number(bestDistance.toFixed(2)),
+        sources: bestChunks.map((c) => c.source).join(","),
       });
     }
 

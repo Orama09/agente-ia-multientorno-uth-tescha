@@ -44,13 +44,19 @@ export const CHROMA_COLLECTION_NAME = readEnv(
 
 /**
  * Umbral de distancia Chroma (L2). Con nomic-embed-text las distancias suelen
- * estar en cientos (~200–300 en logs locales); un valor como 2.0 nunca matcheaba.
+ * estar en ~200–300. 280 dejaba pasar chunks genéricos (p. ej. en "hola").
  * Ajusta con RAG_MAX_DISTANCE si tu índice usa otra escala.
  */
-const parsedRagMaxDistance = Number(readEnv("RAG_MAX_DISTANCE", "280"));
+const parsedRagMaxDistance = Number(readEnv("RAG_MAX_DISTANCE", "260"));
 export const RAG_MAX_DISTANCE = Number.isFinite(parsedRagMaxDistance)
   ? parsedRagMaxDistance
-  : 280;
+  : 260;
+
+/** Solo se aceptan chunks cercanos al mejor resultado (evita mezclar temas). */
+const parsedRagDistanceMargin = Number(readEnv("RAG_DISTANCE_MARGIN", "18"));
+export const RAG_DISTANCE_MARGIN = Number.isFinite(parsedRagDistanceMargin)
+  ? parsedRagDistanceMargin
+  : 18;
 
 /** Base URL de la API v2 de ChromaDB */
 export function getChromaApiUrl(): string {

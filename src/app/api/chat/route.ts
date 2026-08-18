@@ -1,5 +1,6 @@
 import { retrieveContext, addToRAG } from "@/lib/rag";
 import { streamModelResponse } from "@/lib/ollama";
+import { getCannedReply } from "@/lib/institutionalReplies";
 import {
   createRequestId,
   elapsedMs,
@@ -99,6 +100,30 @@ export async function POST(req: Request) {
       history_lines_used,
     } = buildHistoryForPrompt(userHistory);
 
+    const canned = getCannedReply(String(question));
+    if (canned) {
+      logPerf("chat", requestId, "canned_reply", {
+        chars: canned.length,
+        skipped_ollama: true,
+      });
+
+      userHistory.push(`Usuario: ${question}`);
+      userHistory.push(`Asistente: ${canned}`);
+      if (userHistory.length > MAX_MEMORY_LINES) {
+        memory.set(userId, userHistory.slice(-MAX_MEMORY_LINES));
+      }
+
+      logPerf("chat", requestId, "request_end", {
+        total_ms: elapsedMs(requestStartedAt),
+      });
+
+      return new Response(canned, {
+        headers: {
+          "Content-Type": "text/plain; charset=utf-8",
+        },
+      });
+    }
+
     const ragStartedAt = nowMs();
     logPerf("chat", requestId, "retrieve_start");
     const { context } = await retrieveContext(question, 6, requestId);
@@ -108,40 +133,59 @@ export async function POST(req: Request) {
       no_relevant_context: !context || context.trim().length === 0,
     });
 
-    let finalContext = context;
+    const hasRelevantContext =
+      Boolean(context) && context.trim().length >= 20;
 
-    if (!finalContext || finalContext.trim().length < 20) {
-      finalContext = "Información limitada disponible.";
-    }
-
-    const truncatedContext =
-      finalContext.length > MAX_CONTEXT_CHARS
-        ? finalContext.slice(0, MAX_CONTEXT_CHARS)
-        : finalContext;
+    const truncatedContext = hasRelevantContext
+      ? context.length > MAX_CONTEXT_CHARS
+        ? context.slice(0, MAX_CONTEXT_CHARS)
+        : context
+      : "";
 
     const promptStartedAt = nowMs();
-    const prompt = `
-Eres un asistente inteligente del TESCHA.
+    const prompt = hasRelevantContext
+      ? `
+Eres el asistente virtual del TESCHA (Tecnológico de Estudios Superiores de Chalco).
 
-Tu objetivo es ayudar al usuario con respuestas claras, útiles y naturales.
+Responde en español, de forma breve y clara.
 
-Reglas:
-- Usa el contexto como base principal
-- Puedes explicar, resumir o adaptar
-- Si no hay suficiente info, responde de forma útil sin inventar
-- NO digas que eres un modelo
-- NO menciones "contexto" ni "documentos"
+Reglas estrictas:
+- Usa SOLO hechos que estén en el bloque "Información" y que respondan a la pregunta.
+- Si la información habla de otro tema (por ejemplo documentos de inscripción cuando preguntan por convocatorias), NO la uses. Di que no tienes ese dato y sugiere revisar Avisos Institucionales en el portal.
+- NO inventes fechas, requisitos, listas de papeles, costos ni trámites.
+- NO copies listas enteras si no responden la pregunta.
+- NO digas que eres un modelo ni menciones "contexto" o "documentos".
+- NO escribas la palabra Asistente ni el prefijo Respuesta.
 
-Contexto:
+Información:
 ${truncatedContext}
 
 Conversación previa:
 ${historyText}
 
-Usuario:
+Pregunta del usuario:
 ${question}
 
-Asistente:
+Respuesta:
+`
+      : `
+Eres el asistente virtual del TESCHA (Tecnológico de Estudios Superiores de Chalco).
+
+Responde en español, breve y amable. Escribe solo la respuesta, sin prefijos.
+
+Reglas estrictas:
+- No tienes un extracto de documentos para esta pregunta.
+- Orienta al usuario a Avisos Institucionales o al botón «Ver convocatoria» del portal.
+- NO inventes requisitos, documentos, fechas ni listas.
+- NO escribas la palabra Asistente ni copies la pregunta mal escrita.
+
+Conversación previa:
+${historyText}
+
+Pregunta del usuario:
+${question}
+
+Respuesta:
 `;
 
     logPerf("chat", requestId, "prompt_built", {
@@ -151,8 +195,8 @@ Asistente:
       history_chars: historyText.length,
       history_lines_used,
       history_truncated,
-      context_truncated: finalContext.length > MAX_CONTEXT_CHARS,
-      no_relevant_context: !context || context.trim().length === 0,
+      context_truncated: hasRelevantContext && context.length > MAX_CONTEXT_CHARS,
+      no_relevant_context: !hasRelevantContext,
     });
 
     const encoder = new TextEncoder();

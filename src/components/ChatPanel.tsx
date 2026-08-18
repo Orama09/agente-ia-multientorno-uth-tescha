@@ -30,7 +30,8 @@ export default function ChatPanel({ onAvatarStateChange }: ChatPanelProps) {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  /** Contenedor scrolleable interno (nunca scrollIntoView / window). */
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   /** Generación de operación para ignorar resultados de requests obsoletas. */
   const operationIdRef = useRef(0);
 
@@ -127,8 +128,11 @@ export default function ChatPanel({ onAvatarStateChange }: ChatPanelProps) {
     setAvatar("error");
   };
 
+  // Auto-scroll solo dentro del panel de mensajes (no mueve la página).
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    const el = messagesContainerRef.current;
+    if (!el) return;
+    el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
   }, [messages]);
 
   const sendMessage = async () => {
@@ -351,8 +355,11 @@ export default function ChatPanel({ onAvatarStateChange }: ChatPanelProps) {
       : "Voz desactivada — clic para activar";
 
   return (
-    <div className="flex flex-col h-full bg-gray-50">
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+    <div className="flex flex-col h-full min-h-0 bg-gray-50">
+      <div
+        ref={messagesContainerRef}
+        className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-4 space-y-4"
+      >
         {messages.map((msg, i) => (
           <div
             key={i}
@@ -367,11 +374,9 @@ export default function ChatPanel({ onAvatarStateChange }: ChatPanelProps) {
             </div>
           </div>
         ))}
-
-        <div ref={messagesEndRef} />
       </div>
 
-      <div className="sticky bottom-0 z-10 bg-white/90 backdrop-blur-md border-t p-3">
+      <div className="shrink-0 z-10 bg-white/90 backdrop-blur-md border-t p-3">
         <div className="flex items-center gap-2">
           <div className="shrink-0 min-w-[2.25rem] flex items-center justify-start">
             {ttsSpeaking ? (

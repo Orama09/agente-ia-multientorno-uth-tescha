@@ -96,12 +96,13 @@ export default function AgentDock({ className }: AgentDockProps) {
   const { avatarState, requestAvatarState } = useAvatarController("idle");
 
   return (
-    <div className={`flex flex-col h-full min-h-0 bg-gray-50 ${className ?? ""}`}>
-      <div className="shrink-0 sticky top-0 z-10 bg-gray-50/95 backdrop-blur-sm border-b border-gray-200 px-3 py-2.5 sm:px-4 sm:py-3 flex justify-center">
+    <div className={`flex flex-col h-full min-h-0 overflow-hidden bg-gray-50 ${className ?? ""}`}>
+      <div className="shrink-0 z-10 bg-gray-50/95 backdrop-blur-sm border-b border-gray-200 px-3 py-2.5 sm:px-4 sm:py-3 flex justify-center">
         <AvatarExperienceRenderer avatarState={avatarState} />
       </div>
 
-      <div className="flex-1 min-h-0 overflow-y-auto scroll-smooth">
+      {/* overflow-hidden: el scroll vive solo en ChatPanel (mensajes), no aquí ni en la página */}
+      <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
         <ChatPanel onAvatarStateChange={requestAvatarState} />
       </div>
     </div>

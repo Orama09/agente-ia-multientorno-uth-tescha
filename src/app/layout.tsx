@@ -19,10 +19,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             {children}
           </div>
 
-          {/* PANEL */}
-          <aside className="w-full lg:w-[30%] bg-gray-50 border-t 
-          lg:border-l lg:border-t-0 lg:sticky lg:top-[70px] h-[calc(100vh-115px)]">
-            <AgentDock className="h-[calc(100vh-80px)]" />
+          {/* PANEL: altura fija; scroll interno solo en mensajes del chat */}
+          <aside
+            className="
+              w-full lg:w-[30%] bg-gray-50 border-t
+              lg:border-l lg:border-t-0
+              lg:sticky lg:top-[70px]
+              h-[calc(100vh-115px)] max-h-[calc(100vh-115px)]
+              overflow-hidden min-h-0
+            "
+          >
+            <AgentDock className="h-full min-h-0" />
           </aside>
 
         </main>

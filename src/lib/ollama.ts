@@ -66,6 +66,7 @@ export async function streamModelResponse(
       prompt,
       stream: true,
       keep_alive: OLLAMA_KEEP_ALIVE,
+      stop: ["\nUsuario:", "\nAsistente:", "\nPregunta del usuario:"],
     }),
   });
 

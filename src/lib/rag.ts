@@ -1,15 +1,25 @@
+import { GoogleGenAI } from "@google/genai";
 import {
   CHROMA_COLLECTION_NAME,
-  OLLAMA_EMBEDDING_MODEL,
-  OLLAMA_KEEP_ALIVE,
-  OLLAMA_URL,
   RAG_DISTANCE_MARGIN,
   RAG_MAX_DISTANCE,
   chromaPaths,
 } from "./config";
 import { elapsedMs, logPerf, nowMs } from "./performanceLog";
 
-/** Máximo de chunks al prompt (menos contexto = menos prefill en Ollama). */
+// Inicialización de Google Gemini API
+const ai = new GoogleGenAI({
+  apiKey: process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY,
+});
+
+// 👇 "text-embedding-004" fue descontinuado por Google (404 NOT_FOUND).
+// Modelo vigente: "gemini-embedding-001". Genera 3072 dims por defecto,
+// pero se trunca a 768 (EMBEDDING_DIMENSIONS) para mantener compatibilidad
+// con el resto del pipeline (indexDocuments.ts usa la misma dimensión).
+const EMBEDDING_MODEL_NAME = "gemini-embedding-001";
+const EMBEDDING_DIMENSIONS: number = 768;
+
+/** Máximo de chunks al prompt (menos contexto = menos prefill). */
 const MAX_CHUNKS = 3;
 
 const TRIVIAL_QUERY =
@@ -34,7 +44,14 @@ type RetrieveResult = {
   sources: SourceItem[];
 };
 
+// 👇 Cache del ID de colección: rara vez cambia (solo si se recrea o
+// renombra la colección), así que evitamos pedirle a Chroma la lista
+// completa de colecciones en cada mensaje del chat.
+let cachedCollectionId: string | null = null;
+
 async function getCollectionId(): Promise<string> {
+  if (cachedCollectionId) return cachedCollectionId;
+
   const res = await fetch(chromaPaths.collections());
 
   if (!res.ok) {
@@ -49,61 +66,66 @@ async function getCollectionId(): Promise<string> {
     throw new Error("Colección no encontrada");
   }
 
+  cachedCollectionId = collection.id;
   return collection.id;
 }
 
+/**
+ * Normaliza un vector a norma 1 (magnitud 1). Necesario manualmente
+ * porque gemini-embedding-001 NO normaliza automáticamente los
+ * vectores truncados (dimensiones distintas de 3072).
+ */
+function normalizeVector(vector: number[]): number[] {
+  const norm = Math.sqrt(vector.reduce((sum, v) => sum + v * v, 0));
+  if (norm === 0) return vector;
+  return vector.map((v) => v / norm);
+}
+
+/**
+ * Genera el embedding usando Google Gemini (gemini-embedding-001).
+ * Trunca a EMBEDDING_DIMENSIONS (768) y normaliza manualmente.
+ *
+ * @param taskType - "RETRIEVAL_DOCUMENT" para texto que se va a indexar
+ *                    (addToRAG), "RETRIEVAL_QUERY" para la pregunta del
+ *                    usuario (retrieveContext). Usar el tipo correcto en
+ *                    cada caso mejora la calidad de la búsqueda semántica.
+ */
 async function createEmbedding(
   text: string,
+  taskType: "RETRIEVAL_DOCUMENT" | "RETRIEVAL_QUERY",
   requestId?: string
 ): Promise<number[] | null> {
   const startedAt = nowMs();
 
+  // Nota: el cache se comparte entre queries y documentos. Si algún día
+  // el mismo texto exacto se usara con los dos task types, esto podría
+  // devolver el embedding del tipo equivocado. En la práctica no pasa
+  // (las preguntas del usuario casi nunca coinciden con un chunk
+  // indexado carácter por carácter), pero queda documentado.
   if (embeddingCache.has(text)) {
     if (requestId) {
       logPerf("rag", requestId, "embedding", {
         ms: elapsedMs(startedAt),
         cache_hit: true,
         input_chars: text.length,
-        model: OLLAMA_EMBEDDING_MODEL,
+        model: EMBEDDING_MODEL_NAME,
       });
     }
     return embeddingCache.get(text)!;
   }
 
   try {
-    const res = await fetch(`${OLLAMA_URL}/api/embeddings`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
+    const response = await ai.models.embedContent({
+      model: EMBEDDING_MODEL_NAME,
+      contents: text,
+      config: {
+        taskType,
+        outputDimensionality: EMBEDDING_DIMENSIONS,
       },
-      body: JSON.stringify({
-        model: OLLAMA_EMBEDDING_MODEL,
-        prompt: text,
-        keep_alive: OLLAMA_KEEP_ALIVE,
-      }),
     });
+    const rawEmbedding = response.embeddings?.[0]?.values;
 
-    if (!res.ok) {
-      console.error("❌ Error creando embedding: status", res.status);
-      if (requestId) {
-        logPerf("rag", requestId, "embedding_error", {
-          ms: elapsedMs(startedAt),
-          cache_hit: false,
-          status: res.status,
-        });
-      }
-      return null;
-    }
-
-    const data: {
-      embedding?: number[];
-      data?: Array<{ embedding?: number[] }>;
-    } = await res.json();
-
-    const embedding =
-      data.embedding || data?.data?.[0]?.embedding || null;
-
-    if (!embedding) {
+    if (!rawEmbedding || rawEmbedding.length === 0) {
       if (requestId) {
         logPerf("rag", requestId, "embedding_error", {
           ms: elapsedMs(startedAt),
@@ -114,9 +136,9 @@ async function createEmbedding(
       return null;
     }
 
-    const parsed = embedding.map((v) => Number(v));
+    let parsed = Array.from(rawEmbedding).map((v) => Number(v));
 
-    if (parsed.length !== 768) {
+    if (parsed.length !== EMBEDDING_DIMENSIONS) {
       console.log("⚠️ Dimensión incorrecta:", parsed.length);
       if (requestId) {
         logPerf("rag", requestId, "embedding_error", {
@@ -129,6 +151,11 @@ async function createEmbedding(
       return null;
     }
 
+    // Normalización manual requerida para dimensiones truncadas
+    if (EMBEDDING_DIMENSIONS !== 3072) {
+      parsed = normalizeVector(parsed);
+    }
+
     embeddingCache.set(text, parsed);
 
     if (requestId) {
@@ -136,14 +163,13 @@ async function createEmbedding(
         ms: elapsedMs(startedAt),
         cache_hit: false,
         input_chars: text.length,
-        model: OLLAMA_EMBEDDING_MODEL,
-        keep_alive: OLLAMA_KEEP_ALIVE,
+        model: EMBEDDING_MODEL_NAME,
       });
     }
 
     return parsed;
   } catch (error) {
-    console.error("❌ Error creando embedding:", error);
+    console.error("❌ Error creando embedding con Gemini:", error);
     if (requestId) {
       logPerf("rag", requestId, "embedding_error", {
         ms: elapsedMs(startedAt),
@@ -180,7 +206,8 @@ export async function addToRAG(
     for (let i = 0; i < chunks.length; i++) {
       const chunk = chunks[i];
 
-      const embedding = await createEmbedding(chunk);
+      // Texto que se va a poder encontrar → RETRIEVAL_DOCUMENT
+      const embedding = await createEmbedding(chunk, "RETRIEVAL_DOCUMENT");
       if (!embedding) continue;
 
       const id = `${source}-${Date.now()}-chunk-${i}`;
@@ -207,7 +234,7 @@ export async function addToRAG(
       inserted++;
     }
 
-    console.log(`✅ Chunks indexados: ${inserted}/${chunks.length}`);
+    console.log(`✅ Chunks indexados con Gemini: ${inserted}/${chunks.length}`);
   } catch (error) {
     console.error("❌ Error agregando al RAG:", error);
   }
@@ -250,8 +277,13 @@ export async function retrieveContext(
       });
     }
 
-    // Embedir solo la pregunta: el texto envoltorio sesgaba a chunks genéricos.
-    const embedding = await createEmbedding(userQuery.trim(), requestId);
+    // Pregunta del usuario → RETRIEVAL_QUERY (task type distinto al de
+    // los documentos indexados; así Gemini optimiza cada vector para su rol)
+    const embedding = await createEmbedding(
+      userQuery.trim(),
+      "RETRIEVAL_QUERY",
+      requestId
+    );
     if (!embedding) {
       if (requestId) {
         logPerf("rag", requestId, "retrieve_end", {
@@ -313,7 +345,7 @@ export async function retrieveContext(
     const metadatas = data.metadatas?.[0] || [];
     const distances: number[] = data.distances?.[0] || [];
 
-    console.log("📊 Distancias:", distances);
+    console.log("📊 Distancias ChromaDB:", distances);
 
     if (!documents.length) {
       if (requestId) {
@@ -336,7 +368,6 @@ export async function retrieveContext(
       score: distances[i] ?? 999,
     }));
 
-    // Sin fallback ciego: umbral absoluto + margen respecto al mejor match.
     const ranked = results
       .filter((r) => r.text.length > 0)
       .sort((a, b) => a.score - b.score);
@@ -350,7 +381,7 @@ export async function retrieveContext(
 
     if (!filtered.length) {
       console.log(
-        `⚠️ Sin contexto relevante (mejor=${bestDistance.toFixed(1)}, umbral=${RAG_MAX_DISTANCE}); no se usa fallback ciego`
+        `⚠️ Sin contexto relevante (mejor=${bestDistance.toFixed(1)}, umbral=${RAG_MAX_DISTANCE})`
       );
       if (requestId) {
         logPerf("rag", requestId, "retrieve_end", {

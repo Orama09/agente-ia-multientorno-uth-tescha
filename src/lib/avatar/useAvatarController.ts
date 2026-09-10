@@ -7,7 +7,7 @@ import {
   AVATAR_ERROR_RECOVERY_MS,
   AVATAR_HAPPY_DURATION_MS,
   AVATAR_MIN_THINKING_MS,
-} from "@/lib/avatar/avatarConfig";
+} from "@/lib/avatar/avatar3DConfig";
 
 type AvatarController = {
   avatarState: AvatarState;

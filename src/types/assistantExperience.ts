@@ -1,11 +1,11 @@
 /**
  * Contrato de experiencia del asistente (avatar visual + TTS).
  *
- * Independiente de RAG/Ollama. AgentDock elige el renderer de avatar;
+  * Independiente del módulo RAG/Gemini. AgentDock elige el renderer de avatar;
  * ChatPanel elige el motor TTS según estos tipos.
  *
  * Implementados hoy:
- *   - avatar: local-image | threejs (experimental)
+ *   - avatar: threejs (experimental)
  *   - tts: none | web-speech
  *
  * Reservados (arquitectura futura, no implementados):
@@ -14,7 +14,6 @@
  */
 
 export const AVATAR_PROVIDERS = [
-  "local-image",
   "threejs",
   "rive",
   "live2d",
@@ -24,7 +23,7 @@ export const AVATAR_PROVIDERS = [
 export type AvatarProvider = (typeof AVATAR_PROVIDERS)[number];
 
 /** Proveedores de avatar con renderer real en el código. */
-export const IMPLEMENTED_AVATAR_PROVIDERS = ["local-image", "threejs"] as const;
+export const IMPLEMENTED_AVATAR_PROVIDERS = ["threejs"] as const;
 export type ImplementedAvatarProvider =
   (typeof IMPLEMENTED_AVATAR_PROVIDERS)[number];
 

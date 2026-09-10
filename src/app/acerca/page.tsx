@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useState } from "react";
-import { Target, Eye, GraduationCap } from "lucide-react";
+import { Target, Eye, GraduationCap, Users, History, MapPin } from "lucide-react";
 
 export default function Acerca() {
   const menu = [
@@ -11,7 +11,6 @@ export default function Acerca() {
     "Objetivo, Misión y Visión",
     "Organigrama",
     "Ubicación",
-    "Preguntas Frecuentes",
   ];
 
   const [active, setActive] = useState("");
@@ -89,7 +88,7 @@ export default function Acerca() {
         {/* ================= SIDEBAR ================= */}
         <aside className="lg:w-1/4">
 
-          <div className="sticky top-24 bg-white/80 backdrop-blur-md rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
+          <div className="lg:sticky lg:top-24 bg-white/80 backdrop-blur-md rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
 
             <div className="bg-gradient-to-r from-green-600 to-green-500 px-5 py-4">
               <h2 className="text-white font-semibold">
@@ -164,47 +163,50 @@ export default function Acerca() {
 
           {/* ANTECEDENTES */}
           <div id={formatId("Antecedentes")} className="bg-white rounded-2xl shadow-md p-8 scroll-mt-32">
-          <h2 className="text-2xl font-bold text-green-600 mb-6">
-            Antecedentes
-          </h2>
-
-          <div className="grid md:grid-cols-2 gap-8 items-center">
-            
-            <div className="text-gray-600 text-justify space-y-4">
-              <p>
-                El municipio de Chalco se localiza en la zona oriente del Estado de México,
-                a 35 km de la Ciudad de México, lo que lo convierte en una región estratégica
-                por su cercanía con la capital del país.
-              </p>
-
-              <p>
-                A partir de la década de 1980, especialmente después del sismo de 1985,
-                Chalco experimentó un acelerado crecimiento demográfico debido al flujo
-                migratorio proveniente de la Ciudad de México. Este fenómeno transformó
-                el uso del suelo, pasando de una vocación agrícola a un desarrollo urbano
-                con incremento de viviendas, comercio e industria.
-              </p>
-
-              <p>
-                Durante los años 90 se impulsó el desarrollo económico mediante la creación
-                de corredores industriales, lo que incrementó la demanda de servicios,
-                empleo y educación especializada.
-              </p>
-
-              <p>
-                En este contexto surge el Tecnológico, el 8 de diciembre de 1998, como un
-                organismo público descentralizado del Gobierno del Estado de México,
-                iniciando con las carreras de Ingeniería Industrial e Ingeniería
-                Electromecánica. Posteriormente, en 2004, se integraron Ingeniería en
-                Sistemas Computacionales e Ingeniería Electrónica.
-              </p>
-
-              <p>
-                Su objetivo principal es formar profesionistas con capacidades críticas,
-                innovadoras y tecnológicas, capaces de responder a las necesidades del
-                entorno productivo y contribuir al desarrollo regional y nacional.
-              </p>
+            <div className="flex items-center gap-3 mb-6">
+              <History className="text-green-600" size={30} />
+              <h2 className="text-2xl font-bold text-green-600">
+                ANTECEDENTES
+              </h2>
             </div>
+
+            <div className="grid md:grid-cols-2 gap-8 items-center">
+              
+              <div className="text-gray-600 text-justify space-y-4">
+                <p>
+                  El municipio de Chalco se localiza en la zona oriente del Estado de México,
+                  a 35 km de la Ciudad de México, lo que lo convierte en una región estratégica
+                  por su cercanía con la capital del país.
+                </p>
+
+                <p>
+                  A partir de la década de 1980, especialmente después del sismo de 1985,
+                  Chalco experimentó un acelerado crecimiento demográfico debido al flujo
+                  migratorio proveniente de la Ciudad de México. Este fenómeno transformó
+                  el uso del suelo, pasando de una vocación agrícola a un desarrollo urbano
+                  con incremento de viviendas, comercio e industria.
+                </p>
+
+                <p>
+                  Durante los años 90 se impulsó el desarrollo económico mediante la creación
+                  de corredores industriales, lo que incrementó la demanda de servicios,
+                  empleo y educación especializada.
+                </p>
+
+                <p>
+                  En este contexto surge el Tecnológico, el 8 de diciembre de 1998, como un
+                  organismo público descentralizado del Gobierno del Estado de México,
+                  iniciando con las carreras de Ingeniería Industrial e Ingeniería
+                  Electromecánica. Posteriormente, en 2004, se integraron Ingeniería en
+                  Sistemas Computacionales e Ingeniería Electrónica.
+                </p>
+
+                <p>
+                  Su objetivo principal es formar profesionistas con capacidades críticas,
+                  innovadoras y tecnológicas, capaces de responder a las necesidades del
+                  entorno productivo y contribuir al desarrollo regional y nacional.
+                </p>
+              </div>
 
               <div className="w-full h-[300px] relative group overflow-hidden rounded-xl cursor-pointer">
 
@@ -236,7 +238,7 @@ export default function Acerca() {
               <div className="flex items-center gap-3 mb-4">
                 <Target className="text-green-600" size={30} />
                 <h3 className="text-2xl font-bold text-green-600">
-                  Objetivo Institucional
+                  OBJETIVO INSTITUCIONAL
                 </h3>
               </div>
               <p className="text-gray-600 text-base leading-relaxed text-justify mb-6">
@@ -274,7 +276,7 @@ export default function Acerca() {
                 <div className="flex items-center gap-3 mb-4">
                   <GraduationCap className="text-green-600" size={30} />
                   <h3 className="text-2xl font-bold text-green-600">
-                    Misión
+                    MISIÓN
                   </h3>
                 </div>
                 <p className="text-gray-600 text-base leading-relaxed text-justify">
@@ -289,7 +291,7 @@ export default function Acerca() {
                 <div className="flex items-center gap-3 mb-4">
                   <Eye className="text-green-600" size={30} />
                   <h3 className="text-2xl font-bold text-green-600">
-                    Visión
+                    VISIÓN
                   </h3>
                 </div>
                 <p className="text-gray-600 text-base leading-relaxed text-justify">
@@ -304,8 +306,9 @@ export default function Acerca() {
           {/* ORGANIGRAMA */}
           <div id={formatId("Organigrama")} className="bg-white rounded-2xl shadow-md p-8 scroll-mt-32">
             
-            <h2 className="text-2xl font-bold text-green-600 mb-6">
-              Organigrama
+            <h2 className="text-2xl font-bold text-green-600 mb-6 flex items-center gap-2">
+              <Users className="text-green-600" size={30} />
+              ORGANIGRAMA
             </h2>
 
             <p className="text-gray-600 mb-6">
@@ -336,14 +339,15 @@ export default function Acerca() {
           {/* UBICACION */}
           <div id={formatId("Ubicación")} className="bg-white rounded-2xl shadow-md p-8 scroll-mt-32">
             
-            <h2 className="text-2xl font-bold text-green-600 mb-1">
-              Ubicación
+            <h2 className="text-2xl font-bold text-green-600 mb-1 flex items-center gap-2">
+              <MapPin className="text-green-600" size={30} />
+              UBICACIÓN
             </h2>
 
-            <div className="grid md:grid-cols-2 gap-8">
+            <div className="grid md:grid-cols-2 gap-8 items-start">
 
               {/* DATOS */}
-              <div className="text-gray-600 space-y-3 text-base flex flex-col justify-center">
+              <div className="text-gray-600 space-y-3 text-base flex flex-col justify-center border-l-4 border-green-600 pl-6 py-2 bg-gray-50 rounded-r-xl">
                 <p><span className="font-semibold text-green-600">Calle:</span> Carretera Federal México Cuautla s/n</p>
                 <p><span className="font-semibold text-green-600">Colonia:</span> La Candelaria Tlapala</p>
                 <p><span className="font-semibold text-green-600">Municipio:</span> Chalco, Estado de México</p>
@@ -351,15 +355,11 @@ export default function Acerca() {
                 <p><span className="font-semibold text-green-600">Lada:</span> 555</p>
                 <p><span className="font-semibold text-green-600">Teléfono:</span> 59821088 / 59821089</p>
                 <p><span className="font-semibold text-green-600">Horario:</span> Lunes a viernes, 9:00–14:00 y 15:00–18:00 hrs.</p>
-                
-                <p>
-                  <span className="font-semibold text-green-600">Correo:</span>{" "}
-                  <a 
-                    href="mailto:depto.controlescolar@tesch.edu.mx"
-                    className="text-blue-600 hover:underline"
-                  >
-                    depto.controlescolar@tesch.edu.mx
-                  </a>
+                <p><span className="font-semibold text-green-600">Sitio web:</span>{" "}
+                  <a href="https://tescha.edomex.gob.mx/" className="text-blue-600 hover:underline">uth.hn</a>
+                </p> 
+                <p><span className="font-semibold text-green-600">Correo:</span>{" "}
+                  <a href="mailto:depto.controlescolar@tesch.edu.mx" className="text-blue-600 hover:underline">depto.controlescolar@tesch.edu.mx</a>
                 </p>
               </div>
 
@@ -376,19 +376,10 @@ export default function Acerca() {
 
           </div>
 
-          {/* FAQ */}
-          <div id={formatId("Preguntas Frecuentes")} className="bg-white rounded-2xl shadow-md p-8 scroll-mt-32 min-h-[200px]">
-            <h2 className="text-2xl font-bold text-green-600 mb-4">
-              Preguntas Frecuentes
-            </h2>
-            <p className="text-gray-600">
-              Respuestas a dudas comunes de los estudiantes y visitantes.
-            </p>
-          </div>
-
         </div>
 
       </section>
+      
     </main>
   );
 }

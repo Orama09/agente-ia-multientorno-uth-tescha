@@ -3,7 +3,7 @@
  * No altera la lógica del chat; solo instrumenta tiempos y conteos.
  */
 
-export type PerfScope = "chat" | "rag" | "ollama";
+export type PerfScope = "chat" | "rag";
 
 export type PerfValue = string | number | boolean | null | undefined;
 

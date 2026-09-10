@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, type ChangeEvent } from "react";
+import { useState, useRef, useEffect, type ChangeEvent, type ComponentPropsWithoutRef } from "react";
 import ReactMarkdown from "react-markdown";
 import { Mic, Send, Volume2, VolumeX } from "lucide-react";
 import type { AvatarStateChangeHandler } from "@/types/avatar";
@@ -24,6 +24,74 @@ type ChatPanelProps = {
 
 const ERROR_MESSAGE = "❌ Error al procesar la consulta";
 const FILE_ERROR_MESSAGE = "❌ Error al procesar archivo";
+
+/** Estilos explícitos para listas markdown — no dependen del plugin de tipografía de Tailwind. */
+const markdownListComponents = {
+  ul: (props: ComponentPropsWithoutRef<"ul">) => (
+    <ul className="list-disc pl-5 space-y-0.5 marker:text-green-500" {...props} />
+  ),
+  ol: (props: ComponentPropsWithoutRef<"ol">) => (
+    <ol className="list-decimal pl-5 space-y-0.5 marker:text-green-600 marker:font-semibold" {...props} />
+  ),
+  li: (props: ComponentPropsWithoutRef<"li">) => (
+    <li className="pl-1" {...props} />
+  ),
+};
+
+/**
+ * Tarjeta de bienvenida con consejos de uso — solo se muestra antes del
+ * primer mensaje; una vez que la conversación empieza, cede el espacio.
+ */
+function WelcomeTips() {
+  return (
+    <div className="rounded-2xl bg-gradient-to-br from-emerald-50 to-green-200 border border-emerald-400/40 p-4 text-sm text-gray-700 space-y-2.5">
+      <p className="font-semibold text-emerald-800 flex items-center gap-1.5">
+        Antes de empezar, un par de tips:
+      </p>
+      <ul className="space-y-1.5 pl-1">
+        <li className="flex gap-2">
+          <span aria-hidden>🎯</span>
+          <span>Sé específico — mientras más clara la pregunta, mejor la respuesta.</span>
+        </li>
+        <li className="flex gap-2">
+          <span aria-hidden>⏳</span>
+          <span>Un poco de paciencia: a veces tardo unos segundos en responder.</span>
+        </li>
+        <li className="flex gap-2">
+          <span aria-hidden>🔄</span>
+          <span>
+            Si estoy muy solicitado, espera un momento y vuelve a preguntar —
+            sigo aquí.
+          </span>
+        </li>
+      </ul>
+    </div>
+  );
+}
+
+function ThinkingBubble() {
+  return (
+    <div
+      className="p-3 my-1 rounded-2xl text-sm bg-white border shadow-sm max-w-[85%] w-fit flex items-center gap-1"
+      role="status"
+      aria-live="polite"
+      aria-label="El asistente está escribiendo"
+    >
+      <span
+        className="h-1.5 w-1.5 rounded-full bg-gray-400 animate-bounce"
+        style={{ animationDelay: "0ms" }}
+      />
+      <span
+        className="h-1.5 w-1.5 rounded-full bg-gray-400 animate-bounce"
+        style={{ animationDelay: "150ms" }}
+      />
+      <span
+        className="h-1.5 w-1.5 rounded-full bg-gray-400 animate-bounce"
+        style={{ animationDelay: "300ms" }}
+      />
+    </div>
+  );
+}
 
 export default function ChatPanel({ onAvatarStateChange }: ChatPanelProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -75,6 +143,18 @@ export default function ChatPanel({ onAvatarStateChange }: ChatPanelProps) {
   const setAvatar = (state: Parameters<AvatarStateChangeHandler>[0]) => {
     onAvatarStateChange?.(state);
   };
+
+  // Sincroniza el avatar con el AUDIO real, no con la llegada de texto.
+  // streamSpeaking se pone en true justo cuando el sintetizador dispara
+  // onstart (el audio ya está sonando) — antes el avatar se ponía a
+  // "hablar" en cuanto llegaba el primer texto del streaming, mucho antes
+  // de que hubiera sonido real, causando el desfase boca/audio.
+  useEffect(() => {
+    if (streamSpeaking) {
+      setAvatar("speaking");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [streamSpeaking]);
 
   const cancelAllSpeech = () => {
     cancelStreamSpeech();
@@ -145,7 +225,11 @@ export default function ChatPanel({ onAvatarStateChange }: ChatPanelProps) {
     const operationId = ++operationIdRef.current;
 
     cancelAllSpeech();
-    setMessages((prev) => [...prev, { role: "user", content: question }]);
+    setMessages((prev) => [
+      ...prev,
+      { role: "user", content: question },
+      { role: "assistant", content: "" },
+    ]);
     setInput("");
     setLoading(true);
     setAvatar("thinking");
@@ -182,8 +266,6 @@ export default function ChatPanel({ onAvatarStateChange }: ChatPanelProps) {
       let botMessage = "";
       let speakingStarted = false;
 
-      setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
-
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
@@ -204,7 +286,12 @@ export default function ChatPanel({ onAvatarStateChange }: ChatPanelProps) {
 
         if (!speakingStarted && botMessage.trim().length > 0) {
           speakingStarted = true;
-          setAvatar("speaking");
+          // Con voz progresiva, el avatar se sincroniza con streamSpeaking
+          // (efecto de arriba) — aquí solo se dispara de inmediato cuando
+          // NO hay audio con el que desincronizarse.
+          if (!progressive) {
+            setAvatar("speaking");
+          }
         }
 
         if (progressive) {
@@ -226,8 +313,8 @@ export default function ChatPanel({ onAvatarStateChange }: ChatPanelProps) {
       if (!botMessage.trim()) {
         failReply(ERROR_MESSAGE, operationId);
       } else if (progressive) {
-        // Avatar sigue en speaking hasta queue_done → happy
-        setAvatar("speaking");
+        // El efecto que observa streamSpeaking ya sincroniza el avatar con
+        // el audio real (incluida la última oración, encolada aquí).
         finishStreamSpeech();
       } else {
         finishSuccessfulReply(botMessage, operationId);
@@ -391,22 +478,50 @@ export default function ChatPanel({ onAvatarStateChange }: ChatPanelProps) {
         ref={messagesContainerRef}
         className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-4 space-y-4"
       >
-        {messages.map((msg, i) => (
-          <div
-            key={i}
-            className={`p-3 rounded-2xl max-w-[80%] text-sm ${
-              msg.role === "user"
-                ? "bg-green-500 text-white ml-auto"
-                : "bg-white border shadow-sm"
-            }`}
-          >
-            <div className="prose prose-sm max-w-none">
-              <ReactMarkdown>{msg.content}</ReactMarkdown>
-            </div>
-          </div>
-        ))}
-      </div>
+        {messages.length === 0 && <WelcomeTips />}
+        {messages.map((msg, i) => {
+          if (msg.role === "user") {
+            return (
+              <div
+                key={i}
+                className="p-3 rounded-2xl max-w-[80%] text-sm bg-green-500 text-white ml-auto"
+              >
+                <div className="prose prose-sm max-w-none text-white">
+                  <ReactMarkdown>{msg.content}</ReactMarkdown>
+                </div>
+              </div>
+            );
+          }
 
+          const isLastMessage = i === messages.length - 1;
+          const isEmpty = msg.content.trim() === "";
+
+          // Mientras se espera el primer fragmento del streaming, se
+          // muestra el indicador de "escribiendo..." en vez de una
+          // burbuja vacía.
+          if (isLastMessage && loading && isEmpty) {
+            return <ThinkingBubble key={i} />;
+          }
+
+          return (
+            <div key={i} className="flex flex-col gap-2 max-w-[80%]">
+              {msg.content
+                .split(/\n\s*\n/)
+                .filter((block) => block.trim() !== "")
+                .map((block, bIdx) => (
+                  <div
+                    key={bIdx}
+                    className="p-3 my-1 rounded-2xl text-sm bg-white border shadow-sm max-w-[85%]"
+                  >
+                    <ReactMarkdown components={markdownListComponents}>
+                      {block.trim()}
+                    </ReactMarkdown>
+                  </div>
+                ))}
+            </div>
+          );
+        })}
+      </div>
       <div className="shrink-0 z-10 bg-white/90 backdrop-blur-md border-t p-3">
         {isListening && (
           <div
@@ -423,11 +538,7 @@ export default function ChatPanel({ onAvatarStateChange }: ChatPanelProps) {
         )}
         <div className="flex items-center gap-2">
           <div className="shrink-0 min-w-[2.25rem] flex items-center justify-start">
-            {ttsSpeaking ? (
-              <StopSpeechButton onStop={handleStopSpeech} />
-            ) : (
-              <span className="w-9" aria-hidden />
-            )}
+            <StopSpeechButton onStop={handleStopSpeech} active={ttsSpeaking} />
           </div>
 
           <input

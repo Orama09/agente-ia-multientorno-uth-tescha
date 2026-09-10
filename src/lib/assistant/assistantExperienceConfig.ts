@@ -19,14 +19,14 @@ import {
  * No usar process.env[key] — el bundler no las inyecta en el cliente.
  *
  * Variables:
- *   NEXT_PUBLIC_AVATAR_PROVIDER=local-image|threejs|rive|live2d|liveavatar
+ *   NEXT_PUBLIC_AVATAR_PROVIDER=threejs|rive|live2d|liveavatar
  *   NEXT_PUBLIC_TTS_PROVIDER=none|web-speech|external
  *   NEXT_PUBLIC_VOICE_ENABLED_BY_DEFAULT=true|false
  *
- * Implementados avatar: local-image | threejs (experimental).
+ * Implementados avatar: threejs (experimental).
  */
 
-const DEFAULT_AVATAR: AvatarProvider = "local-image";
+const DEFAULT_AVATAR: AvatarProvider = "threejs";
 const DEFAULT_TTS: TtsProvider = "web-speech";
 const DEFAULT_VOICE_ENABLED = false;
 
@@ -71,13 +71,9 @@ function resolveAvatarProvider(raw: string | undefined): AvatarProvider {
   const normalized = raw.toLowerCase();
 
   const aliases: Record<string, AvatarProvider> = {
-    "local-images": "local-image",
-    localimage: "local-image",
-    local_image: "local-image",
     "three-d": "threejs",
     "three-js": "threejs",
     "live-avatar": "liveavatar",
-    heygen: "liveavatar",
   };
 
   const candidate = aliases[normalized] ?? normalized;

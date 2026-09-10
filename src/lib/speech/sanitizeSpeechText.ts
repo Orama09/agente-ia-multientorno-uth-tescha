@@ -48,8 +48,29 @@ export function sanitizeSpeechText(raw: string): string {
   text = text.replace(/^\s*\d+\.\s+/gm, "");
   text = text.replace(/^\s*>\s+/gm, "");
 
-  // Restos de markup sueltos (sin vaciar palabras)
-  text = text.replace(/[#*_`~|\\]/g, " ");
+  // 👇 Montos en pesos: "$602.00 M.N." o "$602" → "602 pesos" / "602 pesos
+  // con 50 centavos". Sin esto, el símbolo "$" llega intacto al sintetizador
+  // de voz, que lo lee como "dólares" sin importar el idioma configurado —
+  // el texto visible en el chat siempre estuvo correcto, el problema era
+  // solo en el audio.
+  text = text.replace(
+    /\$\s?(\d{1,3}(?:,\d{3})*)(?:\.(\d{2}))?\s*(?:M\.?\s?N\.?)?/gi,
+    (_m, intPart: string, decPart?: string) => {
+      const integer = intPart.replace(/,/g, "");
+      const cents = decPart ? parseInt(decPart, 10) : 0;
+      const pesosWord = integer === "1" ? "peso" : "pesos";
+      if (cents > 0) {
+        const centavosWord = cents === 1 ? "centavo" : "centavos";
+        return `${integer} ${pesosWord} con ${cents} ${centavosWord}`;
+      }
+      return `${integer} ${pesosWord}`;
+    }
+  );
+
+  // Restos de markup sueltos (sin vaciar palabras) — se incluye "$" aquí
+  // como red de seguridad, por si algún monto no calzó con el patrón de
+  // arriba (formato inesperado), para que al menos no se lea como "dólares".
+  text = text.replace(/[#*_`~|\\$]/g, " ");
 
   text = text.replace(/\s+/g, " ").trim();
 

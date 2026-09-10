@@ -5,8 +5,8 @@ import dynamic from "next/dynamic";
 import type { AvatarState } from "@/types/avatar";
 import { assistantExperience } from "@/lib/assistant/assistantExperienceConfig";
 import { useAvatarController } from "@/lib/avatar/useAvatarController";
-import AvatarPanel from "./AvatarPanel";
 import ChatPanel from "./ChatPanel";
+import TramitesModal from "./TramitesModal";
 
 type AgentDockProps = {
   className?: string;
@@ -19,27 +19,10 @@ type AgentDockProps = {
 const Avatar3DPanel = dynamic(() => import("./avatar/Avatar3DPanel"), {
   ssr: false,
   loading: () => (
-    <div className="w-full max-w-md mx-auto" aria-busy="true">
-      <div
-        className="
-          relative overflow-hidden rounded-2xl
-          border border-gray-200/80
-          bg-gradient-to-b from-white via-gray-50 to-emerald-50/40
-          shadow-sm
-          px-3 pt-3 pb-2 sm:px-4 sm:pt-4 sm:pb-3
-        "
-      >
-        <div className="relative mx-auto h-44 sm:h-52 lg:h-56 flex items-center justify-center">
-          <div className="h-9 w-9 rounded-full border-2 border-emerald-400 border-t-transparent animate-spin" />
-        </div>
-        <div className="mt-2 text-center min-h-[2.75rem] sm:min-h-[3rem]">
-          <h3 className="text-sm sm:text-base font-semibold tracking-tight text-gray-800">
-            Asistente Virtual TESCHA
-          </h3>
-          <p className="mt-0.5 text-[11px] sm:text-xs text-gray-500">
-            Cargando avatar 3D…
-          </p>
-        </div>
+    <div className="w-full mx-auto" aria-busy="true">
+      <div className="relative overflow-hidden bg-[#00b97f] px-3 pt-6 pb-4 min-h-[420px] flex flex-col items-center justify-center">
+        <div className="h-9 w-9 rounded-full border-2 border-white border-t-transparent animate-spin" />
+        <p className="mt-3 text-xs text-white">Cargando avatar 3D…</p>
       </div>
     </div>
   ),
@@ -49,8 +32,7 @@ const Avatar3DPanel = dynamic(() => import("./avatar/Avatar3DPanel"), {
  * Selecciona el renderer según avatarProvider.
  *
  * Hidratación segura:
- * - Servidor y primer paint del cliente siempre renderizan AvatarPanel.
- * - Tras montar, si provider === "threejs", se carga Avatar3DPanel.
+ * - Servidor y primer paint del cliente siempre renderizan el estado de carga.
  */
 function AvatarExperienceRenderer({
   avatarState,
@@ -58,31 +40,44 @@ function AvatarExperienceRenderer({
   avatarState: AvatarState;
 }) {
   const [mounted, setMounted] = useState(false);
-  const [forceLocalImage, setForceLocalImage] = useState(false);
+  const [hasFatalError, setHasFatalError] = useState(false);
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  const wantsThreeJs =
-    !forceLocalImage && assistantExperience.avatarProvider === "threejs";
 
   // SSR + hidratación: estructura idéntica
-  if (!mounted || !wantsThreeJs) {
-    return <AvatarPanel avatarState={avatarState} />;
+    if (!mounted) {
+    return (
+      <div className="w-full mx-auto" aria-busy="true">
+        <div className="relative overflow-hidden bg-[#C5A853] px-3 pt-6 pb-4 min-h-[420px] flex flex-col items-center justify-center">
+          <div className="h-9 w-9 rounded-full border-2 border-white border-t-transparent animate-spin" />
+          <p className="mt-3 text-xs text-white">Cargando avatar 3D…</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (hasFatalError) {
+    return (
+      <div className="w-full mx-auto flex items-center justify-center min-h-[300px] bg-[#C5A853]">
+        <p className="text-xs text-white px-3 text-center">
+          El avatar no está disponible en este momento.
+        </p>
+      </div>
+    );
   }
 
   return (
     <Avatar3DPanel
       avatarState={avatarState}
+      showStatusLabel={false} // 🔧 Oculta texto debajo del avatar
       onFatalError={(error) => {
         if (process.env.NODE_ENV === "development") {
-          console.error(
-            "[AvatarExperience] Fallo Avatar3DPanel → fallback local-image:",
-            error,
-          );
+          console.error("[AvatarExperience] Fallo Avatar3DPanel:", error);
         }
-        setForceLocalImage(true);
+        setHasFatalError(true);
       }}
     />
   );
@@ -94,17 +89,29 @@ function AvatarExperienceRenderer({
  */
 export default function AgentDock({ className }: AgentDockProps) {
   const { avatarState, requestAvatarState } = useAvatarController("idle");
+  const [tramitesOpen, setTramitesOpen] = useState(false);
 
   return (
-    <div className={`flex flex-col h-full min-h-0 overflow-hidden bg-gray-50 ${className ?? ""}`}>
-      <div className="shrink-0 z-10 bg-gray-50/95 backdrop-blur-sm border-b border-gray-200 px-3 py-2.5 sm:px-4 sm:py-3 flex justify-center">
+    <div
+      className={`flex flex-col h-full min-h-0 overflow-hidden bg-transparent ${className ?? ""}`}
+    >
+      {/* 🔧 Contenedor superior del avatar sin márgenes ni borde */}
+      <div className="shrink-0 z-10 w-full bg-[#ebf2f0]">
         <AvatarExperienceRenderer avatarState={avatarState} />
+        <button
+          onClick={() => setTramitesOpen(true)}
+          className="w-full text-sm font-medium text-white bg-[#0f6b4c] py-2 hover:bg-[#0c5a3f] transition-colors"
+        >
+          📄 Solicitar trámite / consultar estatus
+        </button>
       </div>
 
       {/* overflow-hidden: el scroll vive solo en ChatPanel (mensajes), no aquí ni en la página */}
       <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
         <ChatPanel onAvatarStateChange={requestAvatarState} />
       </div>
+
+      <TramitesModal open={tramitesOpen} onClose={() => setTramitesOpen(false)} />
     </div>
   );
 }

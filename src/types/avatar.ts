@@ -8,7 +8,7 @@
  *   - avatar 3D (Three.js / Ready Player Me)
  *   - Rive
  *   - Live2D
- *   - LiveAvatar / HeyGen
+ *   - LiveAvatar
  *
  * El chat solo emite estados; el panel / proveedor decide cómo
  * representarlos. La voz (TTS) también se sincroniza vía estos

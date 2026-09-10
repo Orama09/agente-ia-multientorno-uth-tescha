@@ -110,7 +110,7 @@ export default function SplashScreen() {
 
   return (
     <div
-      className={`fixed inset-0 z-50 flex items-center justify-center bg-black text-green-400 transition-opacity duration-1000 ${
+      className={`fixed inset-0 z-50 overflow-hidden flex items-center justify-center bg-black text-green-400 transition-opacity duration-1000 ${
         fadeOut ? "opacity-0" : "opacity-100"
       }`}
     >
@@ -122,7 +122,7 @@ export default function SplashScreen() {
 
       {/* CONTENIDO */}
       <div className="relative text-center z-10">
-        <h1 className="text-6xl font-extrabold tracking-[0.5em] text-green-400 drop-shadow-[0_0_20px_#00ff88]">
+        <h1 className="text-3xl sm:text-5xl md:text-6xl font-extrabold tracking-[0.15em] sm:tracking-[0.3em] md:tracking-[0.5em] text-green-400 drop-shadow-[0_0_20px_#00ff88] px-4">
           {text}
           <span className="animate-pulse">|</span>
         </h1>

@@ -13,29 +13,10 @@ function readEnv(key: string, defaultValue: string): string {
   return value && value.trim().length > 0 ? value.trim() : defaultValue;
 }
 
-/** URL base de Ollama (sin ruta /api). Default local: localhost:11434 */
-export const OLLAMA_URL = trimTrailingSlash(
-  readEnv("OLLAMA_URL", "http://localhost:11434")
-);
-
 /** URL base de ChromaDB (sin /api/v2). Default local: localhost:8000 */
 export const CHROMA_URL = trimTrailingSlash(
   readEnv("CHROMA_URL", "http://localhost:8000")
 );
-
-/** Default liviano para CPU local; en equipos potentes usa llama3 vía .env */
-export const OLLAMA_GENERATION_MODEL = readEnv(
-  "OLLAMA_GENERATION_MODEL",
-  "llama3.2:1b"
-);
-
-export const OLLAMA_EMBEDDING_MODEL = readEnv(
-  "OLLAMA_EMBEDDING_MODEL",
-  "nomic-embed-text"
-);
-
-/** Cuánto tiempo Ollama mantiene el modelo en memoria (p. ej. 30m, -1 = indefinido). */
-export const OLLAMA_KEEP_ALIVE = readEnv("OLLAMA_KEEP_ALIVE", "30m");
 
 export const CHROMA_COLLECTION_NAME = readEnv(
   "CHROMA_COLLECTION_NAME",
@@ -43,20 +24,40 @@ export const CHROMA_COLLECTION_NAME = readEnv(
 );
 
 /**
- * Umbral de distancia Chroma (L2). Con nomic-embed-text las distancias suelen
- * estar en ~200–300. 280 dejaba pasar chunks genéricos (p. ej. en "hola").
- * Ajusta con RAG_MAX_DISTANCE si tu índice usa otra escala.
+ * Umbral de distancia Chroma (L2).
+ *
+ * 👇 RECALIBRADO: el proyecto migró de Ollama/nomic-embed-text (distancias
+ * ~200–300) a Gemini (gemini-embedding-001), cuyos vectores se normalizan
+ * manualmente en rag.ts. Con vectores normalizados, la distancia L2 entre
+ * dos embeddings va de 0 a 2 — los valores viejos (260/18) nunca filtraban
+ * nada en esta escala nueva porque ningún resultado real la supera.
+ *
+ * Valores observados en producción con Gemini: coincidencias relevantes
+ * ~0.45–0.65. Se bajó de 0.9 a 0.8 para interceptar preguntas ajenas al
+ * TESCHA (ej. jerga de internet) ANTES de llamar a Gemini — cuando
+ * no_relevant_context es true, route.ts responde directo con
+ * getNoContextReply() de institutionalReplies.ts, igual que un saludo,
+ * sin gastar una llamada al modelo.
+ *
+ * ⚠️ TRADE-OFF: se observó al menos una pregunta legítima con
+ * best_distance=0.81 — un umbral de 0.8 la dejaría fuera. Si notas que
+ * preguntas válidas empiezan a responder "no dispongo del dato", sube este
+ * valor (ej. 0.85 o 0.9) vía la variable de entorno RAG_MAX_DISTANCE en tu
+ * .env o docker-compose.yml, sin necesidad de tocar el código. Ajusta
+ * mirando la línea "📊 Distancias ChromaDB" de tus logs para encontrar el
+ * punto donde las preguntas relevantes y las irrelevantes se separan mejor
+ * en tu caso real.
  */
-const parsedRagMaxDistance = Number(readEnv("RAG_MAX_DISTANCE", "260"));
+const parsedRagMaxDistance = Number(readEnv("RAG_MAX_DISTANCE", "0.8"));
 export const RAG_MAX_DISTANCE = Number.isFinite(parsedRagMaxDistance)
   ? parsedRagMaxDistance
-  : 260;
+  : 0.8;
 
 /** Solo se aceptan chunks cercanos al mejor resultado (evita mezclar temas). */
-const parsedRagDistanceMargin = Number(readEnv("RAG_DISTANCE_MARGIN", "18"));
+const parsedRagDistanceMargin = Number(readEnv("RAG_DISTANCE_MARGIN", "0.15"));
 export const RAG_DISTANCE_MARGIN = Number.isFinite(parsedRagDistanceMargin)
   ? parsedRagDistanceMargin
-  : 18;
+  : 0.15;
 
 /** Base URL de la API v2 de ChromaDB */
 export function getChromaApiUrl(): string {

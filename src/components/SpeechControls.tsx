@@ -21,21 +21,39 @@ type SpeechControlsProps = {
   variant?: "advanced" | "stop-only";
 };
 
-/** Botón Detener lectura TTS (reutilizable). */
+/**
+ * Botón Detener lectura TTS (reutilizable).
+ *
+ * `active` controla el estado visual: `true` mientras el avatar está
+ * hablando (botón rojo, clickeable), `false` el resto del tiempo (gris,
+ * deshabilitado). El botón permanece siempre montado — nunca desaparece
+ * del layout — para evitar que el resto de los controles salten de
+ * posición al iniciar/detener la lectura.
+ */
 export function StopSpeechButton({
   onStop,
   className = "",
+  active = true,
 }: {
   onStop: () => void;
   className?: string;
+  active?: boolean;
 }) {
   return (
     <button
       type="button"
-      onClick={onStop}
-      className={`shrink-0 inline-flex items-center gap-1 px-2.5 py-2 rounded-xl bg-red-50 text-red-600 hover:bg-red-100 text-xs font-medium border border-red-100 ${className}`}
-      aria-label="Detener lectura en voz alta"
-      title="Detener lectura"
+      onClick={active ? onStop : undefined}
+      disabled={!active}
+      aria-pressed={active}
+      aria-label={
+        active ? "Detener lectura en voz alta" : "Lectura en voz alta detenida"
+      }
+      title={active ? "Detener lectura" : "El asistente no está hablando"}
+      className={`shrink-0 inline-flex items-center gap-1 px-2.5 py-2 rounded-xl text-xs font-medium border transition-colors ${
+        active
+          ? "bg-red-50 text-red-600 hover:bg-red-100 border-red-100"
+          : "bg-gray-50 text-gray-300 border-gray-100 cursor-default"
+      } ${className}`}
     >
       <Square size={14} fill="currentColor" />
       <span>Detener</span>
@@ -63,8 +81,8 @@ export default function SpeechControls({
   if (!isSupported || !isEnabled) return null;
 
   if (variant === "stop-only") {
-    if (!isSpeaking) return null;
-    return <StopSpeechButton onStop={onStop} />;
+    // Siempre montado; el estado visual (activo/atenuado) lo controla `active`.
+    return <StopSpeechButton onStop={onStop} active={isSpeaking} />;
   }
 
   return (
@@ -118,7 +136,7 @@ export default function SpeechControls({
         ))}
       </select>
 
-      {isSpeaking && <StopSpeechButton onStop={onStop} />}
+      <StopSpeechButton onStop={onStop} active={isSpeaking} />
     </div>
   );
 }

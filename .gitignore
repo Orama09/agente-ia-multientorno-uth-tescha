@@ -25,4 +25,5 @@ Thumbs.db
 
 #Blender
 *.blend
-*.glbtsconfig.tsbuildinfo 
+*.glb
+tsconfig.tsbuildinfo 

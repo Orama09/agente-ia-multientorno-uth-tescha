@@ -25,4 +25,4 @@ Thumbs.db
 
 #Blender
 *.blend
-public/models/avatar/*.glb
+*.glbtsconfig.tsbuildinfo 

@@ -22,3 +22,7 @@ Thumbs.db
 
 # VS Code
 .vscode/
+
+#Blender
+*.blend
+public/models/avatar/*.glb

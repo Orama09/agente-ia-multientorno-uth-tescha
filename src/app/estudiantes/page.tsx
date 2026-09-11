@@ -138,7 +138,7 @@ export default function Estudiantes() {
         {/* ================= SIDEBAR ================= */}
         <aside className="lg:w-1/4">
 
-          <div className="sticky top-24 bg-white/90 backdrop-blur-md rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
+          <div className="lg:sticky lg:top-24 bg-white/90 backdrop-blur-md rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
 
             <div className="bg-gradient-to-r from-green-600 to-green-500 px-5 py-4">
               <h2 className="text-white font-semibold">
@@ -232,7 +232,7 @@ export default function Estudiantes() {
                 className="bg-white rounded-3xl shadow-md p-8 scroll-mt-32"
               >
 
-                <h2 className="text-2xl font-bold text-green-600 mb-6">
+                <h2 className="text-2xl font-bold text-green-600 mb-6 uppercase tracking-wide">
                   {section.title}
                 </h2>
 
@@ -241,7 +241,7 @@ export default function Estudiantes() {
 
                   <div className="space-y-10">
 
-                    <p className="text-gray-600 text-justify space-y-4">
+                    <p className="text-gray-600 text-justify leading-relaxed">
                       En esta sección podrás consultar los reglamentos y
                       lineamientos académicos-administrativos vigentes del
                       Tecnológico de Estudios Superiores de Chalco.
@@ -353,10 +353,12 @@ export default function Estudiantes() {
                           </p>
 
                           <div className="bg-white border border-green-100 rounded-2xl p-6">
-
-                            <h4 className="text-xl font-semibold text-green-600 mb-4">
-                              Horario de Atención
-                            </h4>
+                            <div className="flex items-center gap-2 mb-4">
+                              <span className="w-3 h-3 bg-green-600 rounded-full"></span>
+                              <h4 className="text-xl font-semibold text-green-600">
+                                Horario de Atención
+                              </h4>
+                            </div>
 
                             <div className="space-y-1 text-gray-600">
                               <p>LUNES A VIERNES DE 9:00 A 14:00 Y DE 15:00 A 18:00 HRS.</p>
@@ -365,10 +367,12 @@ export default function Estudiantes() {
                           </div>
 
                           <div className="bg-white border border-green-100 rounded-2xl p-6">
-
-                            <h4 className="text-xl font-semibold text-green-600 mb-5">
-                              Guía de Difusión de Trámites y Servicios Escolares
-                            </h4>
+                            <div className="flex items-center gap-2 mb-4">
+                              <span className="w-3 h-3 bg-green-600 rounded-full"></span>
+                              <h4 className="text-xl font-semibold text-green-600">
+                                Guía de Difusión de Trámites y Servicios Escolares
+                              </h4>
+                            </div>
 
                             <div className="w-full h-[600px] border border-gray-200 rounded-2xl overflow-hidden">
                               <iframe
@@ -416,9 +420,12 @@ export default function Estudiantes() {
 
                           <div className="bg-white border border-green-100 rounded-2xl p-6">
 
-                            <h4 className="text-xl font-semibold text-green-600 mb-5">
-                              Díptico de Titulación 2026
-                            </h4>
+                            <div className="flex items-center gap-2 mb-5">
+                              <span className="w-3 h-3 bg-green-600 rounded-full"></span>
+                              <h4 className="text-xl font-semibold text-green-600">
+                                Díptico de Titulación 2026
+                              </h4>
+                            </div>
 
                             <div className="w-full h-[600px] border border-gray-200 rounded-2xl overflow-hidden">
                               <iframe
@@ -574,7 +581,7 @@ export default function Estudiantes() {
                           <span className="w-3 h-3 bg-green-600 rounded-full"></span>
 
                           <h3 className="text-2xl font-semibold text-green-600">
-                            Formatos y Documentos
+                            Formatos y Documentos descargables
                           </h3>
                         </div>
 
@@ -591,31 +598,44 @@ export default function Estudiantes() {
                         <a
                           href="/documents/SGI_G3_1.2_SOLICITUD_FICHA_EXAMEN_ADM_2025Vfinal.docx"
                           download
-                          className="group bg-gray-50 hover:bg-green-50 border border-gray-200 hover:border-green-300 rounded-2xl p-5 transition-all duration-300 text-left"
+                          className="group flex items-center gap-4 bg-gray-50 hover:bg-green-50 border border-gray-200 hover:border-blue-300 rounded-2xl p-5 transition-all duration-300 text-left"
                         >
-                          <h4 className="text-lg font-semibold text-gray-800 group-hover:text-green-700 transition">
-                            Solicitud de Pre-registro
-                          </h4>
+                          <div className="p-3 bg-blue-100 group-hover:bg-blue-200 text-blue-700 rounded-xl transition flex-shrink-0">
+                            <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                          </div>
 
-                          <p className="text-sm text-gray-500 mt-1">
-                            Descargar documento Word
-                          </p>
+                          <div>
+                            <h4 className="text-lg font-semibold text-gray-800 group-hover:text-blue-700 transition">
+                              Solicitud de Pre-registro
+                            </h4>
+                            <p className="text-sm text-gray-500 mt-1">
+                              Descargar documento Word
+                            </p>
+                          </div>
                         </a>
-
                         {/* PDF */}
                         <button
                           onClick={() =>
                             setSelectedPdf("/documents/SGI_G3_1.4_CONVENIO_CONEL_ESTUDIANTE.pdf")
                           }
-                          className="group bg-gray-50 hover:bg-green-50 border border-gray-200 hover:border-green-300 rounded-2xl p-5 transition-all duration-300 text-left"
+                          className="group flex items-center gap-4 bg-gray-50 hover:bg-red-50 border border-gray-200 hover:border-red-300 rounded-2xl p-5 transition-all duration-300 text-left w-full"
                         >
-                          <h4 className="text-lg font-semibold text-gray-800 group-hover:text-green-700 transition">
-                            Convenio con el estudiante
-                          </h4>
+                          <div className="p-3 bg-red-100 group-hover:bg-red-200 text-red-700 rounded-xl transition flex-shrink-0">
+                            <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+                            </svg>
+                          </div>
 
-                          <p className="text-sm text-gray-500 mt-1">
-                            Visualizar documento PDF
-                          </p>
+                          <div>
+                            <h4 className="text-lg font-semibold text-gray-800 group-hover:text-red-700 transition">
+                              Convenio con el estudiante
+                            </h4>
+                            <p className="text-sm text-gray-500 mt-1">
+                              Visualizar documento PDF
+                            </p>
+                          </div>
                         </button>
 
                         {/* PDF */}
@@ -623,15 +643,23 @@ export default function Estudiantes() {
                           onClick={() =>
                             setSelectedPdf("/documents/PASOS PARA PAGO INSCRIPCIÓN DE NUEVO INGRESO.pdf")
                           }
-                          className="group bg-gray-50 hover:bg-green-50 border border-gray-200 hover:border-green-300 rounded-2xl p-5 transition-all duration-300 text-left"
+                          className="group flex items-center gap-4 bg-gray-50 hover:bg-red-50 border border-gray-200 hover:border-red-300 rounded-2xl p-5 transition-all duration-300 text-left w-full"
                         >
-                          <h4 className="text-lg font-semibold text-gray-800 group-hover:text-green-700 transition">
-                            Instrucciones para pago de derechos
-                          </h4>
+                          <div className="p-3 bg-red-100 group-hover:bg-red-200 text-red-700 rounded-xl transition flex-shrink-0">
+                            <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+                            </svg>
+                          </div>
+                          
+                          <div>
+                            <h4 className="text-lg font-semibold text-gray-800 group-hover:text-red-700 transition">
+                              Instrucciones para pago de derechos
+                            </h4>
 
-                          <p className="text-sm text-gray-500 mt-1">
-                            Visualizar documento PDF
-                          </p>
+                            <p className="text-sm text-gray-500 mt-1">
+                              Visualizar documento PDF
+                            </p>
+                          </div>
                         </button>
 
                         {/* PDF */}
@@ -639,15 +667,23 @@ export default function Estudiantes() {
                           onClick={() =>
                             setSelectedPdf("/documents/ACUSE DE ENLACE DE REGLAMENTO DE ESTUDIANTES 2026.pdf")
                           }
-                          className="group bg-gray-50 hover:bg-green-50 border border-gray-200 hover:border-green-300 rounded-2xl p-5 transition-all duration-300 text-left"
+                          className="group flex items-center gap-4 bg-gray-50 hover:bg-red-50 border border-gray-200 hover:border-red-300 rounded-2xl p-5 transition-all duration-300 text-left w-full"
                         >
-                          <h4 className="text-lg font-semibold text-gray-800 group-hover:text-green-700 transition">
-                            Acuse de reglamento de estudiantes
-                          </h4>
+                          <div className="p-3 bg-red-100 group-hover:bg-red-200 text-red-700 rounded-xl transition flex-shrink-0">
+                            <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+                            </svg>
+                          </div>
 
-                          <p className="text-sm text-gray-500 mt-1">
-                            Visualizar documento PDF
-                          </p>
+                          <div>
+                            <h4 className="text-lg font-semibold text-gray-800 group-hover:text-red-700 transition">
+                              Acuse de reglamento de estudiantes
+                            </h4>
+
+                            <p className="text-sm text-gray-500 mt-1">
+                              Visualizar documento PDF
+                            </p>
+                          </div>
                         </button>
 
                         {/* PDF */}
@@ -655,15 +691,22 @@ export default function Estudiantes() {
                           onClick={() =>
                             setSelectedPdf("/documents/ENTREGA DE ENLACE DE REGLAMENTO DE ESTUDIANTES 2026.pdf")
                           }
-                          className="group bg-gray-50 hover:bg-green-50 border border-gray-200 hover:border-green-300 rounded-2xl p-5 transition-all duration-300 text-left"
+                          className="group flex items-center gap-4 bg-gray-50 hover:bg-red-50 border border-gray-200 hover:border-red-300 rounded-2xl p-5 transition-all duration-300 text-left w-full"
                         >
-                          <h4 className="text-lg font-semibold text-gray-800 group-hover:text-green-700 transition">
-                            Entrega de enlace de reglamento
-                          </h4>
+                          <div className="p-3 bg-red-100 group-hover:bg-red-200 text-red-700 rounded-xl transition flex-shrink-0">
+                            <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+                            </svg>
+                          </div>
+                          <div>
+                            <h4 className="text-lg font-semibold text-gray-800 group-hover:text-red-700 transition">
+                              Entrega de enlace de reglamento
+                            </h4>
 
-                          <p className="text-sm text-gray-500 mt-1">
-                            Visualizar documento PDF
-                          </p>
+                            <p className="text-sm text-gray-500 mt-1">
+                              Visualizar documento PDF
+                            </p>
+                          </div>
                         </button>
 
                         {/* PDF */}
@@ -671,15 +714,23 @@ export default function Estudiantes() {
                           onClick={() =>
                             setSelectedPdf("/documents/PASOS PARA PAGO EXAMEN DE ADMISION 2.pdf")
                           }
-                          className="group bg-gray-50 hover:bg-green-50 border border-gray-200 hover:border-green-300 rounded-2xl p-5 transition-all duration-300 text-left"
+                          className="group flex items-center gap-4 bg-gray-50 hover:bg-red-50 border border-gray-200 hover:border-red-300 rounded-2xl p-5 transition-all duration-300 text-left w-full"
                         >
-                          <h4 className="text-lg font-semibold text-gray-800 group-hover:text-green-700 transition">
-                            Pago examen de admisión
-                          </h4>
+                          <div className="p-3 bg-red-100 group-hover:bg-red-200 text-red-700 rounded-xl transition flex-shrink-0">
+                            <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+                            </svg>
+                          </div>
+                          
+                          <div> 
+                            <h4 className="text-lg font-semibold text-gray-800 group-hover:text-red-700 transition">
+                              Pago examen de admisión
+                            </h4>
 
-                          <p className="text-sm text-gray-500 mt-1">
-                            Visualizar documento PDF
-                          </p>
+                            <p className="text-sm text-gray-500 mt-1">
+                              Visualizar documento PDF
+                            </p>
+                          </div>
                         </button>
 
                         {/* PDF */}
@@ -687,45 +738,69 @@ export default function Estudiantes() {
                           onClick={() =>
                             setSelectedPdf("/documents/CUOTAS 2026.pdf")
                           }
-                          className="group bg-gray-50 hover:bg-green-50 border border-gray-200 hover:border-green-300 rounded-2xl p-5 transition-all duration-300 text-left"
+                          className="group flex items-center gap-4 bg-gray-50 hover:bg-red-50 border border-gray-200 hover:border-red-300 rounded-2xl p-5 transition-all duration-300 text-left w-full"
                         >
-                          <h4 className="text-lg font-semibold text-gray-800 group-hover:text-green-700 transition">
-                            Cuotas 2026
-                          </h4>
+                          <div className="p-3 bg-red-100 group-hover:bg-red-200 text-red-700 rounded-xl transition flex-shrink-0">
+                            <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+                            </svg>
+                          </div>
+                          
+                          <div>
+                            <h4 className="text-lg font-semibold text-gray-800 group-hover:text-red-700 transition">
+                              Cuotas 2026
+                            </h4>
 
-                          <p className="text-sm text-gray-500 mt-1">
-                            Visualizar documento PDF
-                          </p>
+                            <p className="text-sm text-gray-500 mt-1">
+                              Visualizar documento PDF
+                            </p>
+                          </div>
                         </button>
 
                         {/* WORD */}
                         <a
                           href="/documents/SGI_G3_2.1_SOLICITUD_DE_REINSCRIPCIÓN_Y_CARGA_ACADÉMICA_2025.docx"
                           download
-                          className="group bg-gray-50 hover:bg-green-50 border border-gray-200 hover:border-green-300 rounded-2xl p-5 transition-all duration-300 text-left"
+                          className="group flex items-center gap-4 bg-gray-50 hover:bg-green-50 border border-gray-200 hover:border-blue-300 rounded-2xl p-5 transition-all duration-300 text-left"
                         >
-                          <h4 className="text-lg font-semibold text-gray-800 group-hover:text-green-700 transition">
-                            Solicitud de reinscripción y carga académica
-                          </h4>
+                          <div className="p-3 bg-blue-100 group-hover:bg-blue-200 text-blue-700 rounded-xl transition flex-shrink-0">
+                            <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                          </div>
 
-                          <p className="text-sm text-gray-500 mt-1">
-                            Descargar documento Word
-                          </p>
+                          <div>
+                            <h4 className="text-lg font-semibold text-gray-800 group-hover:text-blue-700 transition">
+                              Solicitud de reinscripción y carga académica
+                            </h4>
+
+                            <p className="text-sm text-gray-500 mt-1">
+                              Descargar documento Word
+                            </p>
+                          </div>
                         </a>
 
                         {/* WORD */}
                         <a
                           href="/documents/SGI_G3_1.3_SOLICITUD_INSCRIPCIÓN_2025.docx"
                           download
-                          className="group bg-gray-50 hover:bg-green-50 border border-gray-200 hover:border-green-300 rounded-2xl p-5 transition-all duration-300 text-left"
+                          className="group flex items-center gap-4 bg-gray-50 hover:bg-green-50 border border-gray-200 hover:border-blue-300 rounded-2xl p-5 transition-all duration-300 text-left"
                         >
-                          <h4 className="text-lg font-semibold text-gray-800 group-hover:text-green-700 transition">
-                            Solicitud de inscripción
-                          </h4>
+                          <div className="p-3 bg-blue-100 group-hover:bg-blue-200 text-blue-700 rounded-xl transition flex-shrink-0">
+                            <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                          </div>
 
-                          <p className="text-sm text-gray-500 mt-1">
-                            Descargar documento Word
-                          </p>
+                          <div>
+                            <h4 className="text-lg font-semibold text-gray-800 group-hover:text-blue-700 transition">
+                              Solicitud de inscripción
+                            </h4>
+
+                            <p className="text-sm text-gray-500 mt-1">
+                              Descargar documento Word
+                            </p>
+                          </div>
                         </a>
                         
 

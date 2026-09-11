@@ -1,58 +1,70 @@
+name: agente-ia-multientorno      #-Identificafor global del proyecto
+
 services:
-
-  nextjs:
-    build:
+  nextjs:                                    #-Servicio de la aplicación Next.js
+    build:                                   #-Construcción de la imagen del contenedor
       context: .
-      dockerfile: Dockerfile 
-    container_name: ai-avatar-nextjs
+      dockerfile: Dockerfile
+    image: agente-ia-multientorno:latest     #-Nombre de la imagen del contenedor
+    container_name: agente-ia-multientorno
     ports:
-      - "3000:3000"
+      - "3000:3000"                          #-Puerto expuesto para acceder a la aplicación Next.js
+    stdin_open: true                         #-Mantener el contenedor abierto para la entrada estándar
     volumes:
-      - ./:/app
-      - nextjs_node_modules:/app/node_modules
+      - ./:/app                                     #-Montar el directorio actual en /app dentro del contenedor
+      - nextjs_node_modules:/app/node_modules       #-Proteger la carpeta node_modules para evitar conflictos de dependencias
+    command: npm run dev                     #-Comando para iniciar la aplicación Next.js en modo desarrollo
     environment:
-      - CHOKIDAR_USEPOLLING=true
-      - WATCHPACK_POLLING=true
-      - NODE_ENV=development
-      - OLLAMA_URL=http://ollama:11434
-      - CHROMA_URL=http://chroma:8000
-      - HEYGEN_API_KEY=${HEYGEN_API_KEY}
-    depends_on:
-      - ollama
-      - chroma
+      - CHOKIDAR_USEPOLLING=true             #-Habilitar la vigilancia de archivos en entornos de contenedores
+      - WATCHPACK_POLLING=true               #-
+      - NODE_ENV=development                 #-Establecer el entorno de desarrollo 
+      - GEMINI_API_KEY=${GEMINI_API_KEY}     #-Clave secreta de gemini guardada en .env
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - CHROMA_URL=${CHROMA_URL:-http://chroma-multientorno:8000}        #-Conexión de red interna para conectar con ChromaDB
+      - CHROMA_COLLECTION_NAME=${CHROMA_COLLECTION_NAME:-school_documents}  #-Se define el nombre de la coleccion vectorial (school_documents).
+      
+      # --- Módulo de trámites ---
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-tescha_admin}:${POSTGRES_PASSWORD:-changeme}@postgres-multientorno:5432/${POSTGRES_DB:-tramites}
+      - SENDGRID_API_KEY=${SENDGRID_API_KEY}         
+      - SENDGRID_TO_EMAIL=${SENDGRID_TO_EMAIL}    
+      - ADMIN_KEY=${ADMIN_KEY}                        
+      - APP_BASE_URL=${APP_BASE_URL:-http://localhost:3000}  
 
-  ollama:
-    image: ollama/ollama:latest
-    container_name: ollama
-    ports:
-      - "11434:11434"
-    volumes:
-      - ollama:/root/.ollama
-    restart: unless-stopped
-    entrypoint: ["/bin/sh", "-c"]
-    command: >
-      "ollama serve & 
-      sleep 5 && 
-      ollama pull llama3 && 
-      ollama pull nomic-embed-text &&
-      wait"
+    depends_on:                           #-Garantiza que el contenedor de ChromaDB inici antes qUE Next.js para prevenir errores de conexión
+      - chroma-multientorno
+      - postgres-multientorno
 
-  chroma:
-    image: chromadb/chroma:latest
-    container_name: chroma
+  chroma-multientorno:
+    image: chromadb/chroma:latest                 #-Descagra la versión oficial de ChromaDB desde Docker Hub
+    container_name: chroma-multientorno
     ports:
-      - "8000:8000"
+      - "8000:8000"                               #-Exporta la base de datos en el puerto 8000
     volumes:
-      - chroma_data:/chroma/chroma
+      - chroma_data:/chroma/chroma                #-Almacena los vectores en un volumen persistente para no perder la información indexada
+    restart: unless-stopped                       #-Reinicia automaticamente la base de datos
+
+  postgres-multientorno:
+    image: postgres:16-alpine
+    container_name: postgres-multientorno
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-tescha_admin}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-changeme}
+      - POSTGRES_DB=${POSTGRES_DB:-tramites}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
     restart: unless-stopped
 
 volumes:
-  ollama:
-    name: ai-avatar_ollama
 
   chroma_data:
-    name: ai-avatar_chroma_data
+    name: chroma-multientorno_data                      #-Espacio de disco gestionado por Docker donde se guardan los embeddings de ChromaDB
 
-  nextjs_node_modules:
-    name: ai-avatar_nextjs_node_modules
+  postgres_data:
+    name: agente-ia-multientorno_postgres_data
     
+  nextjs_node_modules:
+    name: agente-ia-multientorno_nextjs_node_modules   #-Espacio de distco dedicado a almacenar los paquetes instalados por "npm" en el contenedor
+
+  

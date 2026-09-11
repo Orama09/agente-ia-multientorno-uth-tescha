@@ -56,13 +56,15 @@ Gemini y SendGrid siguen siendo APIs externas — no cambian.
 2. Conecta tu repositorio de GitHub (`agente-ia-multientorno-uth-tescha`).
 3. Runtime: **Docker** (Render detecta tu `Dockerfile` en la raíz).
 4. Plan: **Free**.
-5. **Sobrescribe el comando de arranque.** Tu `Dockerfile` actual corre `npm run dev` (modo desarrollo — más lento y no pensado para producción). En la configuración del Web Service, en **"Docker Command"** (o "Start Command", según la versión del dashboard), pon:
+5. **Sobrescribe el comando de arranque.** Tu `Dockerfile` actual corre `npm run dev` (modo desarrollo — más lento y no pensado para producción). Además, el modelo 3D (`tescha_avatar_final.glb`) **no está en el repositorio** (pesa 144 MB, excede el límite de GitHub) — vive como adjunto en un [GitHub Release](https://github.com/Orama09/agente-ia-multientorno-uth-tescha/releases/tag/assets-v1) y hay que descargarlo antes de arrancar. En la configuración del Web Service, en **"Docker Command"** (o "Start Command", según la versión del dashboard), pon:
 
    ```bash
-   sh -c "npm run build && npm run start"
+   sh -c "mkdir -p public/models/avatar && curl -L -o public/models/avatar/tescha_avatar_final.glb https://github.com/Orama09/agente-ia-multientorno-uth-tescha/releases/download/assets-v1/tescha_avatar_final.glb && npm run build && npm run start"
    ```
 
-   Esto no modifica tu `Dockerfile` — Render lo usa igual para instalar dependencias y copiar el código, pero al arrancar corre el build de producción en vez de `npm run dev`. `next start` respeta automáticamente la variable `PORT` que Render inyecta, así que no hay que tocar nada más de puertos.
+   Esto descarga el modelo, corre el build de producción y arranca — todo en un solo comando. `next start` respeta automáticamente la variable `PORT` que Render inyecta, así que no hay que tocar nada más de puertos.
+
+   ⚠️ **Importante:** como este comando corre cada vez que el contenedor **arranca** (no solo la primera vez), cada vez que el servicio despierte de estar dormido (ver sección H) va a volver a descargar el archivo de 144 MB — esto añade tiempo al despertar, además del propio "cold start" de Render. Tenlo en cuenta al calcular cuánto antes de la demo necesitas "despertar" el servicio.
 
 6. **Nota (no bloquea el despliegue):** tu `Dockerfile` trae `ENV OLLAMA_URL=http://ollama:11434`, resto de la época de Ollama. No rompe nada porque nada la usa ya, pero vale la pena quitarla cuando limpies el código muerto de Ollama en `config.ts`.
 
@@ -122,6 +124,7 @@ npm run index-docs
 ## H. Limitaciones a tener en cuenta para la demo en vivo
 
 - **Spin-down por inactividad:** los servicios gratis de Render "duermen" tras ~15 minutos sin tráfico, y la siguiente visita tarda hasta ~1 minuto en responder mientras despierta. Esto aplica **tanto al servicio de Next.js como al de Chroma** — si cualquiera de los dos se duerme, hay que esperar a que despierte (y si fue Chroma el que se durmió, perdiste el índice y hay que re-indexar).
+- **El modelo 3D se re-descarga en cada arranque** (ver sección E): al despertar de estar dormido, Next.js vuelve a bajar los 144 MB del `.glb` antes de poder arrancar — esto suma tiempo extra al "despertar" además del cold-start normal de Render.
 - **Mitigación sugerida:** unos 10-15 minutos antes de tu defensa, abre la URL de la aplicación y haz una pregunta de prueba (esto despierta ambos servicios). Si tienes tiempo de espera antes de presentar, interactúa con la app cada pocos minutos para mantenerla despierta.
 - **750 horas gratis al mes por workspace:** de sobra para una demo puntual, no es un límite que debas preocuparte para este caso.
 - **Postgres expira a los 30 días:** si tu defensa es después de ese plazo, crea la base de nuevo (y actualiza `DATABASE_URL`) antes.

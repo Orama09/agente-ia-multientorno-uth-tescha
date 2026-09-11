@@ -60,7 +60,7 @@ agente-ia-multientorno-uth-tescha/
 ├── documents/                       # Documentos institucionales base (reglamentos, calendario, etc.)
 ├── public/
 │   ├── documents/                   # Base de conocimiento para el RAG
-│   └── models/avatar/               # Modelos .glb del avatar 3D
+│   └── models/avatar/               # Modelo 3D del avatar (NO incluido en el repo — ver sección Instalación)
 ├── scripts/
 │   ├── scrapeWebsites.ts            # Extracción de contenido de sitios institucionales
 │   └── indexDocuments.ts            # Indexación de documentos hacia ChromaDB
@@ -146,6 +146,14 @@ Instala las dependencias
 ```bash
 npm install
 ```
+
+Descarga el modelo 3D del avatar (no viene incluido en el repositorio por su tamaño — 144 MB, excede el límite de GitHub) y colócalo en `public/models/avatar/`:
+
+```bash
+curl -L -o public/models/avatar/tescha_avatar_final.glb https://github.com/Orama09/agente-ia-multientorno-uth-tescha/releases/download/assets-v1/tescha_avatar_final.glb
+```
+
+(o descárgalo manualmente desde la [página de Releases](https://github.com/Orama09/agente-ia-multientorno-uth-tescha/releases/tag/assets-v1) y colócalo en esa misma ruta)
 
 Configura las variables de entorno (desarrollo local)
 
@@ -290,11 +298,9 @@ Puedes sobrescribir variables creando un archivo `.env` en la raíz del proyecto
 
 **Angélica Rubí Amaro Téllez**
 
-Tecnológico de Estudios Superiores de Chalco en colaboración con la Universidad Tecnologica de Honduras
+Tecnológico de Estudios Superiores de Chalco
 
 Ingeniería Informática
-
-
 
 ---
 

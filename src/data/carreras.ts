@@ -10,6 +10,7 @@ interface Carrera {
   };
   perfilProfesionalTexto?: string;
   camposTrabajo?: string[];
+  reticulaPdf?: string;
 }
 
 // Objeto con todas las carreras
@@ -27,6 +28,7 @@ const carrerasData: Record<string, Carrera> = {
     perfilProfesionalTexto:
       "El egresado podrá desempeñarse en áreas de producción, logística y gestión de calidad.",
     camposTrabajo: ["Plantas industriales", "Consultoría en procesos", "Gestión de calidad"],
+    reticulaPdf: "/documents/reticulas/ingenieria-industrial.pdf",
   },
   "ingenieria-sistemas": {
     nombre: "Ingeniería en Sistemas Computacionales",
@@ -41,6 +43,7 @@ const carrerasData: Record<string, Carrera> = {
     perfilProfesionalTexto:
       "El egresado podrá trabajar en desarrollo de software, administración de redes y seguridad informática.",
     camposTrabajo: ["Empresas de TI", "Consultoría tecnológica", "Administración de redes"],
+    reticulaPdf: "/documents/reticulas/ingenieria-sistemas.pdf",
   },
   "ingenieria-informatica": {
     nombre: "Ingeniería Informática",
@@ -54,6 +57,7 @@ const carrerasData: Record<string, Carrera> = {
     perfilProfesionalTexto:
       "El egresado podrá desempeñarse en análisis de datos, gestión documental y soporte tecnológico.",
     camposTrabajo: ["Empresas privadas", "Instituciones públicas", "Consultoría en TI"],
+    reticulaPdf: "/documents/reticulas/ingenieria-informatica.pdf",
   },
   "ingenieria-electromecanica": {
     nombre: "Ingeniería Electromecánica",
@@ -68,6 +72,7 @@ const carrerasData: Record<string, Carrera> = {
     perfilProfesionalTexto:
       "El egresado podrá desempeñarse en áreas de mantenimiento, diseño y operación de sistemas electromecánicos.",
     camposTrabajo: ["Industrias manufactureras", "Plantas de energía", "Consultoría técnica"],
+    reticulaPdf: "/documents/reticulas/ingenieria-electromecanica.pdf",
   },
   "ingenieria-administracion": {
     nombre: "Ingeniería en Administración",
@@ -82,6 +87,7 @@ const carrerasData: Record<string, Carrera> = {
     perfilProfesionalTexto:
       "El egresado podrá desempeñarse en áreas de administración, finanzas y recursos humanos.",
     camposTrabajo: ["Empresas privadas", "Instituciones públicas", "Consultoría empresarial"],
+    reticulaPdf: "/documents/reticulas/ingenieria-administracion.pdf",
   },
   "ingenieria-electronica": {
     nombre: "Ingeniería Electrónica",
@@ -96,6 +102,7 @@ const carrerasData: Record<string, Carrera> = {
     perfilProfesionalTexto:
       "El egresado podrá desempeñarse en áreas de telecomunicaciones, automatización y diseño electrónico.",
     camposTrabajo: ["Empresas de telecomunicaciones", "Industria automotriz", "Consultoría en electrónica"],
+    reticulaPdf: "/documents/reticulas/ingenieria-electronica.pdf",
   },
 };
 

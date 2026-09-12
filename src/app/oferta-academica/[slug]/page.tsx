@@ -13,7 +13,7 @@ export default function CarreraPage({ params }: PageProps) {
 
   if (!carrera) {
     return (
-      <main className="min-h-screen bg-gray-50 pt-28 pb-16 px-6 md:px-12 flex items-center justify-center">
+      <main className="min-h-screen bg-gray-50 pt-20 pb-16 px-6 md:px-12 flex items-center justify-center">
         <div className="text-center space-y-4 max-w-lg">
           <h1 className="text-3xl font-bold text-gray-800 capitalize">
             {slugLimpio.replace(/-/g, " ")}
@@ -34,7 +34,7 @@ export default function CarreraPage({ params }: PageProps) {
   }
 
   return (
-    <main className="min-h-screen bg-gray-50 pt-28 pb-16 px-6 md:px-12">
+    <main className="min-h-screen bg-gray-50 pt-8 pb-16 px-6 md:px-12">
       <div className="max-w-5xl mx-auto">
         {/* BOTÓN REGRESAR */}
         <div className="mb-6">
@@ -146,6 +146,32 @@ export default function CarreraPage({ params }: PageProps) {
               )}
             </div>
           )}
+
+                    {/* RETÍCULA */}
+          {carrera.reticulaPdf && (
+            <div className="space-y-6">
+              <h2 className="text-2xl font-bold text-gray-800 border-b pb-2 border-green-200">
+                Retícula del Programa
+              </h2>
+              <div className="bg-white p-4 md:p-6 rounded-2xl border border-green-200 shadow-sm">
+                <iframe
+                  src={carrera.reticulaPdf}
+                  title={`Retícula de ${carrera.nombre}`}
+                  className="w-full h-[600px] rounded-xl border border-gray-200"
+                />
+                <div className="mt-4 text-right">
+                  <a
+                    href={carrera.reticulaPdf}
+                    download
+                    className="inline-flex items-center gap-2 text-sm text-green-600 hover:text-green-700 font-semibold transition-colors"
+                  >
+                    Descargar retícula en PDF
+                  </a>
+                </div>
+              </div>
+            </div>
+          )}
+
         </div>
       </div>
     </main>

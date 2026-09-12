@@ -53,13 +53,13 @@ Gemini y SendGrid siguen siendo APIs externas — no cambian.
 ## E. Paso 3 — Desplegar Next.js
 
 1. **New +** → **Web Service**.
-2. Conecta tu repositorio de GitHub (`agente-ia-multientorno-uth-tescha`).
+2. Conecta tu repositorio de GitHub (`tescha-agente-ia-multientorno-uth`).
 3. Runtime: **Docker** (Render detecta tu `Dockerfile` en la raíz).
 4. Plan: **Free**.
-5. **Sobrescribe el comando de arranque.** Tu `Dockerfile` actual corre `npm run dev` (modo desarrollo — más lento y no pensado para producción). Además, el modelo 3D (`tescha_avatar_final.glb`) **no está en el repositorio** (pesa 144 MB, excede el límite de GitHub) — vive como adjunto en un [GitHub Release](https://github.com/Orama09/agente-ia-multientorno-uth-tescha/releases/tag/assets-v1) y hay que descargarlo antes de arrancar. En la configuración del Web Service, en **"Docker Command"** (o "Start Command", según la versión del dashboard), pon:
+5. **Sobrescribe el comando de arranque.** Tu `Dockerfile` actual corre `npm run dev` (modo desarrollo — más lento y no pensado para producción). Además, el modelo 3D (`tescha_avatar_final.glb`) **no está en el repositorio** (pesa 144 MB, excede el límite de GitHub) — vive como adjunto en un [GitHub Release](https://github.com/Orama09/tescha-agente-ia-multientorno/releases/tag/assets-v1) y hay que descargarlo antes de arrancar. En la configuración del Web Service, en **"Docker Command"** (o "Start Command", según la versión del dashboard), pon:
 
    ```bash
-   sh -c "mkdir -p public/models/avatar && curl -L -o public/models/avatar/tescha_avatar_final.glb https://github.com/Orama09/agente-ia-multientorno-uth-tescha/releases/download/assets-v1/tescha_avatar_final.glb && npm run build && npm run start"
+   sh -c "mkdir -p public/models/avatar && curl -L -o public/models/avatar/tescha_avatar_final.glb https://github.com/Orama09/tescha-agente-ia-multientorno/releases/download/assets-v1/tescha_avatar_final.glb && npm run build && npm run start"
    ```
 
    Esto descarga el modelo, corre el build de producción y arranca — todo en un solo comando. `next start` respeta automáticamente la variable `PORT` que Render inyecta, así que no hay que tocar nada más de puertos.

@@ -34,3 +34,7 @@ export function loadEnvFiles(): void {
     }
   }
 }
+
+// Se ejecuta automáticamente apenas alguien importe este archivo — así no
+// depende del orden de los demás imports en el script que lo use.
+loadEnvFiles();

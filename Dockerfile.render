@@ -1,0 +1,20 @@
+FROM node:20-bullseye
+
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm install
+
+COPY . .
+
+# Descargar el modelo 3D (no está en el repo por su tamaño) — se hace aquí,
+# en el build, para no repetirlo cada vez que el contenedor despierte
+RUN mkdir -p public/models/avatar && \
+    curl -L -o public/models/avatar/tescha_avatar_final.glb https://github.com/Orama09/agente-ia-multientorno-uth-tescha/releases/download/assets-v1/tescha_avatar_final.glb
+
+# Build de producción — corre en la máquina de build de Render (hasta 8GB), no en el contenedor final
+RUN npm run build
+
+EXPOSE 3000
+
+CMD ["npm", "run", "start"]

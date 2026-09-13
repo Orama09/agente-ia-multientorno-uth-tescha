@@ -27,3 +27,4 @@ Thumbs.db
 *.blend
 *.glb
 tsconfig.tsbuildinfo 
+.next/ 

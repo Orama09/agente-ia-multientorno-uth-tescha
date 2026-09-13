@@ -182,6 +182,7 @@ Edita `.env.local` con tus propias credenciales y valores.
 | `POSTGRES_PASSWORD` | Contraseña de la base de datos PostgreSQL |
 | `POSTGRES_DB` | Nombre de la base de datos (`tramites`) |
 | `SENDGRID_API_KEY` | API key de SendGrid para el envío de correos del módulo de trámites |
+| `SENDGRID_FROM_EMAIL` | Correo verificado en Sendgrid que envía los correos al Correo Institucional |
 | `SENDGRID_TO_EMAIL` | Correo institucional que recibe las notificaciones de trámites |
 | `ADMIN_KEY` | Clave de administración para acciones protegidas sobre trámites |
 | `APP_BASE_URL` | URL base de la aplicación (usada en enlaces generados, ej. comprobantes) |

@@ -31,7 +31,8 @@ Permite a un estudiante:
 4. Folio generado (TESCHA-XXXXXXXX) se muestra al estudiante (con botón copiar)
         ↓
 5. notifyNuevoTramite() → correo a SENDGRID_TO_EMAIL (Control Escolar)
-   con los datos de la solicitud y 3 botones de acción
+   enviado desde SENDGRID_FROM_EMAIL, con los datos de la solicitud
+   y 3 botones de acción
         ↓
 6. Control Escolar da clic en un botón del correo
    → GET /api/tramites/[folio]/accion?estado=X&key=ADMIN_KEY
@@ -39,7 +40,8 @@ Permite a un estudiante:
 7. updateTramiteEstado() → UPDATE en Postgres (estado + fecha_en_proceso o fecha_resuelto)
         ↓
 8. Si el nuevo estado es "completado" o "rechazado":
-   notifyEstadoActualizado() → correo al estudiante (tramite.correo)
+   notifyEstadoActualizado() → correo al estudiante (tramite.correo),
+   enviado desde SENDGRID_FROM_EMAIL
         ↓
 9. Estudiante consulta su folio en TramitesModal ("Consultar estatus")
    → GET /api/tramites?folio=X
@@ -101,23 +103,27 @@ Una vez que un trámite llega a un estado **final** (`completado` o `rechazado`)
 
 ## F. Notificaciones por correo (SendGrid)
 
-Dos correos distintos, con destinatarios distintos:
+Dos correos distintos, con destinatarios distintos, pero **un solo remitente** para ambos (`SENDGRID_FROM_EMAIL`, ver sección I):
 
 ### 1. `notifyNuevoTramite` — al crear el trámite
 
-- **Destinatario:** `SENDGRID_TO_EMAIL` (la bandeja interna de Control Escolar, no el estudiante).
+- **Destinatario:** `SENDGRID_TO_EMAIL` (la bandeja de la persona de Control Escolar que actúa sobre el trámite).
+- **Remitente:** `SENDGRID_FROM_EMAIL` (la cuenta verificada como Single Sender en SendGrid — puede ser una persona distinta a quien recibe).
 - **Contenido:** todos los datos de la solicitud + 3 botones de acción (en proceso / completado / rechazado), cada uno apuntando a `/api/tramites/[folio]/accion?estado=...&key=${ADMIN_KEY}`.
-- Si falta `SENDGRID_API_KEY`, `SENDGRID_TO_EMAIL` o `ADMIN_KEY`, la función se cancela silenciosamente (con un `console.warn`) — el trámite igual se crea en la base de datos, solo no llega el correo.
+- Si falta `SENDGRID_API_KEY`, `SENDGRID_FROM_EMAIL`, `SENDGRID_TO_EMAIL` o `ADMIN_KEY`, la función se cancela silenciosamente (con un `console.warn`) — el trámite igual se crea en la base de datos, solo no llega el correo.
 
 ### 2. `notifyEstadoActualizado` — al resolver el trámite
 
 - **Destinatario:** `tramite.correo` (el correo que el propio estudiante puso en el formulario).
+- **Remitente:** `SENDGRID_FROM_EMAIL`.
 - Solo se envía si el nuevo estado es `completado` o `rechazado`.
 - El mensaje de resolución cambia según el **tipo** de trámite:
   - Si es `reporte_problema`: mensaje distinto ("fue revisado y atendido" / "no fue posible darle seguimiento"), no menciona recoger documentos.
   - Cualquier otro tipo: mensaje sobre recoger el documento en las oficinas del TESCHA dentro de 2 días hábiles (o volver a solicitarlo si fue rechazado), con el horario de atención de Control Escolar.
 
 Ambos correos desactivan el tracking de SendGrid (clics, aperturas, suscripción) y convierten manualmente los acentos/ñ a entidades HTML antes de enviarlos (`toHtmlEntities`).
+
+> **Nota:** `SENDGRID_FROM_EMAIL` y `SENDGRID_TO_EMAIL` pueden ser la misma dirección (caso simple, una sola persona hace todo) o direcciones distintas (por ejemplo, una cuenta verificada como sender y otra persona distinta que recibe y actúa sobre los trámites). El código no asume que sean iguales.
 
 ---
 
@@ -159,7 +165,8 @@ POSTGRES_DB=tramites
 
 # Trámites
 SENDGRID_API_KEY=
-SENDGRID_TO_EMAIL=      # bandeja de Control Escolar (recibe cada solicitud nueva)
+SENDGRID_FROM_EMAIL=    # cuenta verificada como Single Sender en SendGrid (envía los correos)
+SENDGRID_TO_EMAIL=      # bandeja de la persona de Control Escolar que recibe y actúa (puede ser distinta a SENDGRID_FROM_EMAIL)
 ADMIN_KEY=              # protege los enlaces de acción del correo interno
 APP_BASE_URL=http://localhost:3000   # usado para construir los enlaces del correo
 ```
@@ -187,6 +194,7 @@ Al abrir el modal, ambos formularios se reinician (`useEffect` sobre `open`).
 - No hay reintento ni cola si el envío de SendGrid falla: solo se registra el error en consola (`console.error`), el trámite queda creado/actualizado igual.
 - El comprobante PDF depende de que exista físicamente `public/documents/templates/hoja_membretada_tescha.pdf`; si falta, la ruta falla.
 - Sin paginación ni panel de administración para listar todos los trámites — solo se puede consultar de uno en uno, por folio.
+- **El envío de correo depende de un Single Sender Verification en SendGrid asociado a una cuenta de Gmail individual, no de un dominio propio autenticado.** Si Google inhabilita esa cuenta (ya ocurrió una vez), se pierde el envío hasta verificar un nuevo remitente. Mejora futura: autenticar un dominio propio en SendGrid para no depender de la disponibilidad de una cuenta personal.
 
 ---
 
@@ -203,6 +211,7 @@ Al abrir el modal, ambos formularios se reinician (`useEffect` sobre `open`).
 - [ ] Intentar descargar el comprobante de un trámite aún no resuelto directamente por URL → `409`
 - [ ] Folio inexistente → `404` en consulta y en comprobante
 - [ ] Probar con `reporte_problema` para confirmar que el mensaje de resolución es distinto al de constancias
+- [ ] Confirmar que `SENDGRID_FROM_EMAIL` está verificado como Single Sender en SendGrid antes de probar en producción
 
 ---
 

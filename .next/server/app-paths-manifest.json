@@ -1,4 +1,0 @@
-{
-  "/oferta-academica/page": "app/oferta-academica/page.js",
-  "/oferta-academica/[slug]/page": "app/oferta-academica/[slug]/page.js"
-}

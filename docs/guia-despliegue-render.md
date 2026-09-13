@@ -66,8 +66,6 @@ Gemini y SendGrid siguen siendo APIs externas — no cambian.
 
    ⚠️ **Importante:** como este comando corre cada vez que el contenedor **arranca** (no solo la primera vez), cada vez que el servicio despierte de estar dormido (ver sección H) va a volver a descargar el archivo de 144 MB — esto añade tiempo al despertar, además del propio "cold start" de Render. Tenlo en cuenta al calcular cuánto antes de la demo necesitas "despertar" el servicio.
 
-6. **Nota (no bloquea el despliegue):** tu `Dockerfile` trae `ENV OLLAMA_URL=http://ollama:11434`, resto de la época de Ollama. No rompe nada porque nada la usa ya, pero vale la pena quitarla cuando limpies el código muerto de Ollama en `config.ts`.
-
 ---
 
 ## F. Variables de entorno del servicio Next.js

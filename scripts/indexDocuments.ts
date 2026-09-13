@@ -2,7 +2,7 @@ import fs from "fs";
 import path from "path";
 import axios from "axios";
 import pdfParse from "pdf-parse";
-import { GoogleGenAI } from "@google/genai"; // 👈 Nueva SDK oficial
+import { GoogleGenAI } from "@google/genai"; 
 import { loadEnvFiles } from "../src/lib/loadEnv";
 import {
   CHROMA_COLLECTION_NAME,

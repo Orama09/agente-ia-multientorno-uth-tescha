@@ -147,7 +147,7 @@ export default function CarreraPage({ params }: PageProps) {
             </div>
           )}
 
-                    {/* RETÍCULA */}
+          {/* RETÍCULA */}
           {carrera.reticulaPdf && (
             <div className="space-y-6">
               <h2 className="text-2xl font-bold text-gray-800 border-b pb-2 border-green-200">

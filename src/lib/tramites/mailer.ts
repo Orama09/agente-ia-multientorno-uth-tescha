@@ -6,7 +6,7 @@ const HORARIO_CONTROL_ESCOLAR =
   "El horario de atención del Departamento de Control Escolar es de lunes a viernes, de 09:00 a 14:00 y de 15:00 a 18:00 hrs.";
 
 function getFromEmail(): string | undefined {
-  return process.env.SENDGRID_TO_EMAIL;
+  return process.env.SENDGRID_FROM_EMAIL;
 }
 
 function ensureConfigured(): boolean {

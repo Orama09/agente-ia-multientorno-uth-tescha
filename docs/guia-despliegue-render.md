@@ -20,9 +20,10 @@ Gemini y SendGrid siguen siendo APIs externas — no cambian.
 
 ## B. Antes de empezar
 
-1. Tu código debe estar en un repositorio de **GitHub** (Render se conecta directo al repo).
-2. Confirma que `.env` / `.env.local` estén en `.gitignore` (ya lo verificamos antes) — **nunca** subas tus API keys reales al repo.
+1. Tu código debe estar en un repositorio de **GitHub** (Render se conecta directo al repo). Como UTH todavía no tiene uno, créalo primero (repositorio vacío o con el proyecto ya subido).
+2. Confirma que `.env` / `.env.local` estén en `.gitignore` — **nunca** subas tus API keys reales al repo.
 3. Crea una cuenta en [render.com](https://render.com) (no pide tarjeta para el plan gratuito).
+4. Debes tener listo `Dockerfile.render` en la raíz del repo (ver [`docs/`](.) o el archivo que te compartí aparte) y el `.glb` de UTH subido como **GitHub Release** (ver sección E).
 
 ---
 
@@ -42,7 +43,8 @@ Gemini y SendGrid siguen siendo APIs externas — no cambian.
 1. **New +** → **Web Service**.
 2. Elige **"Deploy an existing image"** (no un repo de GitHub).
 3. Imagen: `chromadb/chroma:latest`.
-4. Puerto: `8000`.
+4. Nombre: `tescha-chroma`
+5. Región: la misma que uses para los demás servicios
 5. Plan: **Free**.
 6. Una vez creado, copia la **URL pública** que Render le asigna (algo como `https://tescha-chroma.onrender.com`) — la necesitarás como `CHROMA_URL` en el paso siguiente.
 
@@ -50,25 +52,58 @@ Gemini y SendGrid siguen siendo APIs externas — no cambian.
 
 ---
 
-## E. Paso 3 — Desplegar Next.js
+## E. Paso 3 — Subir el modelo 3D como GitHub Release
+
+Como `tescha_avatar_final_animado.glb` probablemente pese más de 100 MB (el límite de GitHub para archivos normales del repo), **no se sube al repositorio directamente**. Se sube como adjunto de un Release:
+
+1. En tu repositorio de GitHub (una vez creado): `https://github.com/<tu-usuario>/<repo-uth>/releases/new`
+2. Tag: `assets-v1`. Título: "Avatar 3D model".
+3. Arrastra `tescha_avatar_final_animado.glb` a la zona de adjuntos y publica.
+4. Copia el enlace de descarga directa (algo como `https://github.com/<tu-usuario>/<repo-uth>/releases/download/assets-v1/tescha_avatar_final_animado.glb`).
+
+---
+## F. Paso 4 — Desplegar Next.js (con `Dockerfile.render`)
 
 1. **New +** → **Web Service**.
-2. Conecta tu repositorio de GitHub (`tescha-agente-ia-multientorno-uth`).
-3. Runtime: **Docker** (Render detecta tu `Dockerfile` en la raíz).
-4. Plan: **Free**.
-5. **Sobrescribe el comando de arranque.** Tu `Dockerfile` actual corre `npm run dev` (modo desarrollo — más lento y no pensado para producción). Además, el modelo 3D (`tescha_avatar_final.glb`) **no está en el repositorio** (pesa 144 MB, excede el límite de GitHub) — vive como adjunto en un [GitHub Release](https://github.com/Orama09/tescha-agente-ia-multientorno/releases/tag/assets-v1) y hay que descargarlo antes de arrancar. En la configuración del Web Service, en **"Docker Command"** (o "Start Command", según la versión del dashboard), pon:
+2. Conecta tu repositorio de GitHub de UTH.
+3. Runtime: **Docker** (Render detecta el Dockerfile).
+4. **Importante:** en el campo **"Dockerfile Path"**, cambia el valor de `./Dockerfile` a **`./Dockerfile.render`**.
+5. Deja el campo **"Docker Command"** completamente **vacío** — el `CMD` ya vive dentro de `Dockerfile.render`, no hace falta sobrescribirlo.
+6. Plan: **Free**.
 
-   ```bash
-   sh -c "mkdir -p public/models/avatar && curl -L -o public/models/avatar/tescha_avatar_final.glb https://github.com/Orama09/tescha-agente-ia-multientorno/releases/download/assets-v1/tescha_avatar_final.glb && npm run build && npm run start"
-   ```
+`Dockerfile.render` (crear en la raíz del repo, junto al `Dockerfile` de desarrollo — no se toca ese, se deja igual):
 
-   Esto descarga el modelo, corre el build de producción y arranca — todo en un solo comando. `next start` respeta automáticamente la variable `PORT` que Render inyecta, así que no hay que tocar nada más de puertos.
+```dockerfile
+FROM node:20-bullseye
 
-   ⚠️ **Importante:** como este comando corre cada vez que el contenedor **arranca** (no solo la primera vez), cada vez que el servicio despierte de estar dormido (ver sección H) va a volver a descargar el archivo de 144 MB — esto añade tiempo al despertar, además del propio "cold start" de Render. Tenlo en cuenta al calcular cuánto antes de la demo necesitas "despertar" el servicio.
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm install
+
+COPY . .
+
+# Descargar el modelo 3D (no está en el repo por su tamaño) — se hace aquí,
+# en el build, para no repetirlo cada vez que el contenedor despierte
+RUN mkdir -p public/models/avatar && \
+    curl -L -o public/models/avatar/tescha_avatar_final_animado.glb https://github.com/<tu-usuario>/<repo-uth>/releases/download/assets-v1/tescha_avatar_final_animado.glb
+
+# Build de producción — corre en la máquina de build de Render (hasta 8GB), no en el contenedor final
+RUN npm run build
+
+EXPOSE 3001
+
+CMD ["npm", "run", "start"]
+```
+
+⚠️ **Por qué así y no con un solo comando `sh -c "... && ... && ..."`:** lo intentamos primero así en la copia de TESCHA y falló dos veces:
+- El campo "Docker Command" de Render no maneja bien las comillas ni el `&&` (interpreta todo el texto como un solo comando inválido).
+- Incluso arreglando eso, el plan gratis de Render solo da **512 MB de RAM al contenedor en ejecución** — y `npm run build` puede quedarse sin memoria ahí. Las **máquinas de build** de Render sí tienen hasta 8 GB, así que mover el build al `Dockerfile` (que se ejecuta durante el build, no al arrancar) evita ambos problemas.
+- Bono: con esto, el modelo 3D queda "horneado" en la imagen — ya no se re-descarga cada vez que el servicio despierta de estar dormido (solo en un redeploy nuevo).
 
 ---
 
-## F. Variables de entorno del servicio Next.js
+## G. Variables de entorno del servicio Next.js
 
 En la sección **Environment** del Web Service de Next.js, agrega:
 
@@ -95,31 +130,34 @@ NEXT_PUBLIC_VOICE_ENABLED_BY_DEFAULT=false
 
 # Trámites
 SENDGRID_API_KEY=
+SENDGRID_FROM_EMAIL=
 SENDGRID_TO_EMAIL=
 ADMIN_KEY=
 APP_BASE_URL=https://tescha-ai-avatar.onrender.com
 ```
 
-`APP_BASE_URL` debe ser la URL pública que Render le asigna a **este mismo servicio** (Next.js) — Render te la muestra en cuanto lo creas, aunque el primer deploy falle; puedes actualizar esta variable después.
-
+`APP_BASE_URL` debe ser la URL pública que Render le asigna a **este mismo servicio** — te la muestra en cuanto lo creas, aunque el primer deploy falle; puedes actualizar esta variable después (dispara un redeploy pequeño y rápido, no vuelve a descargar el `.glb` porque eso vive en la imagen ya construida).
 ---
 
-## G. Indexar documentos en producción
+## H. Indexar documentos en producción
 
-Como ChromaDB en Render no tiene disco persistente (ver sección D), necesitas indexar **después de cada despliegue o reinicio** de ese servicio, no una sola vez.
+Como ChromaDB en Render no tiene disco persistente, necesitas indexar **después de cada despliegue o reinicio** de ese servicio, no una sola vez.
 
-Render no tiene un equivalente directo a `docker compose exec`, así que la forma de correr los scripts de indexado es usar el **Shell** del servicio de Next.js (pestaña "Shell" en el dashboard del Web Service, disponible en planes con acceso a shell — revisa si tu plan free lo incluye; si no, la alternativa es correr los scripts desde tu propia computadora apuntando `CHROMA_URL` a la URL pública del Chroma de Render):
+Si tu plan no incluye pestaña "Shell" en el servicio de Next.js, corre los scripts desde tu propia computadora, cambiando temporalmente `CHROMA_URL` en tu `.env.local` a la URL pública del Chroma de Render:
 
 ```bash
 npm run scrape-docs
 npm run index-docs
 ```
 
-**Recomendación para el día de la defensa:** corre estos dos comandos **justo antes** de empezar, y evita que pase mucho tiempo de inactividad entre que indexas y haces la demo (ver siguiente sección sobre el "sleep" de los servicios gratis).
+Después, regresa `CHROMA_URL` a `http://localhost:8000` en tu `.env.local` para no romper tu entorno de desarrollo.
+
+**Recomendación para el día de la defensa:** corre estos dos comandos **justo antes** de empezar.
+
 
 ---
 
-## H. Limitaciones a tener en cuenta para la demo en vivo
+## I. Limitaciones a tener en cuenta para la demo en vivo
 
 - **Spin-down por inactividad:** los servicios gratis de Render "duermen" tras ~15 minutos sin tráfico, y la siguiente visita tarda hasta ~1 minuto en responder mientras despierta. Esto aplica **tanto al servicio de Next.js como al de Chroma** — si cualquiera de los dos se duerme, hay que esperar a que despierte (y si fue Chroma el que se durmió, perdiste el índice y hay que re-indexar).
 - **El modelo 3D se re-descarga en cada arranque** (ver sección E): al despertar de estar dormido, Next.js vuelve a bajar los 144 MB del `.glb` antes de poder arrancar — esto suma tiempo extra al "despertar" además del cold-start normal de Render.
@@ -129,12 +167,15 @@ npm run index-docs
 
 ---
 
-## I. Checklist antes de la defensa
+## J. Checklist antes de la defensa
 
+- [ ] Repositorio de TESCHA creado en GitHub y código subido
+- [ ] `.glb` de TESCHA subido como GitHub Release, enlace de descarga confirmado
+- [ ] `Dockerfile.render` en la raíz del repo, con la URL correcta del Release
 - [ ] Postgres de Render creado y `DATABASE_URL` copiado a las variables de Next.js
 - [ ] ChromaDB desplegado y su URL pública copiada como `CHROMA_URL`
 - [ ] Next.js desplegado, build exitoso (revisar logs si falla)
-- [ ] Todas las variables de la sección F configuradas (sin dejar ninguna vacía por error)
+- [ ] Todas las variables de la sección G configuradas (sin dejar ninguna vacía por error)
 - [ ] `APP_BASE_URL` actualizado con la URL real que Render asignó a Next.js
 - [ ] `scrape-docs` + `index-docs` corridos contra el Chroma de Render
 - [ ] Probar una pregunta institucional real y confirmar que responde con contexto (no "información limitada")

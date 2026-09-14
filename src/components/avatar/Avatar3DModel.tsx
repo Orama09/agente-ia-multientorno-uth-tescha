@@ -141,41 +141,24 @@ export default function Avatar3DModel({
     // --- Boca ---
     if (!mesh || !mesh.morphTargetInfluences) return;
 
+    // Reducimos la velocidad global a 7.5 para un ritmo de habla humano/cadencioso
+    const time = state.clock.elapsedTime * 7.5;
+
     if (avatarState === "speaking") {
-      // --- Ciclo de "sílabas": en vez de 4 ondas independientes compitiendo,
-      // usamos un ciclo 0→1 repetido donde cada shape key domina una franja
-      // (segmento) con una curva de subida/bajada suave (seno), y los
-      // segmentos se solapan un poco para que la transición entre una forma
-      // y la siguiente sea gradual, no un salto. Así se ven coordinadas
-      // ("en armonía") en vez de superpuestas al azar.
-      //
-      // 'ou' tiene un segmento más ancho (0.34 vs ~0.24 de las demás) para
-      // que se sostenga más tiempo, tal como se pidió.
-      const cycleSpeed = 0.095; // más bajo = sílabas más largas/lentas
-      // variación lenta de velocidad/intensidad para que no se sienta 100% repetitivo
-      const rhythmMod = 0.85 + 0.3 * Math.sin(state.clock.elapsedTime * 0.17);
-      const phase = (state.clock.elapsedTime * cycleSpeed * rhythmMod) % 1;
+      // Modulación mediante ondas compuestas para evitar repeticiones mecánicas
+      const speechRhythm = (Math.sin(time * 0.4) + Math.cos(time * 0.25) + 2) / 4;
 
-      const segmentWeight = (start: number, end: number, peak: number) => {
-        if (phase < start || phase > end) return 0;
-        const local = (phase - start) / (end - start);
-        return Math.sin(Math.PI * local) * peak; // 0 -> peak -> 0, suave
-      };
+      // Calculamos aperturas vocales con pausas orgánicas
+      const targetOu = Math.max(0, Math.sin(time * 0.8)) * speechRhythm * 0.65;
+      const targetDental = Math.max(0, Math.cos(time * 0.6)) * speechRhythm * 0.45;
 
-      const targetAbierta = segmentWeight(0.0, 0.26, 0.85);
-      const targetOu = segmentWeight(0.2, 0.54, 0.7); // segmento ancho: dura más
-      const targetDental = segmentWeight(0.48, 0.72, 0.5);
-      const targetCerrada = segmentWeight(0.68, 1.0, 0.4);
+      // La boca se cierra ('cerrada') en las pausas silábicas cuando baja la apertura
+      const targetCerrada =
+        targetOu < 0.2 && targetDental < 0.2
+          ? (Math.sin(time * 1.5) + 1) * 0.35
+          : 0.0;
 
-      // Aplicamos lerp suave a las cuatro Shape Keys
-      if (keys.abierta !== undefined) {
-        mesh.morphTargetInfluences[keys.abierta] = MathUtils.lerp(
-          mesh.morphTargetInfluences[keys.abierta],
-          targetAbierta,
-          delta * 7
-        );
-      }
-
+      // Aplicamos lerp suave a las tres Shape Keys
       if (keys.ou !== undefined) {
         mesh.morphTargetInfluences[keys.ou] = MathUtils.lerp(
           mesh.morphTargetInfluences[keys.ou],
@@ -200,15 +183,6 @@ export default function Avatar3DModel({
         );
       }
     } else {
-      // Regresa las Shape Keys pausadamente al estado de reposo
-      if (keys.abierta !== undefined) {
-        mesh.morphTargetInfluences[keys.abierta] = MathUtils.lerp(
-          mesh.morphTargetInfluences[keys.abierta],
-          0.0,
-          delta * 6
-        );
-      }
-
       if (keys.ou !== undefined) {
         mesh.morphTargetInfluences[keys.ou] = MathUtils.lerp(
           mesh.morphTargetInfluences[keys.ou],

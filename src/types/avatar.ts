@@ -2,13 +2,6 @@
  * Estados del avatar del asistente.
  *
  * Este contrato es independiente del proveedor visual.
- * Hoy se renderiza con imágenes locales; en el futuro el mismo
- * AvatarState puede impulsar:
- *   - local image avatar (actual)
- *   - avatar 3D (Three.js / Ready Player Me)
- *   - Rive
- *   - Live2D
- *   - LiveAvatar
  *
  * El chat solo emite estados; el panel / proveedor decide cómo
  * representarlos. La voz (TTS) también se sincroniza vía estos

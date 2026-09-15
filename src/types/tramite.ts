@@ -26,8 +26,8 @@ export type Tramite = {
   estado: TramiteEstado;
   createdAt: string;
   updatedAt: string;
-  fechaEnProceso: string | null;   // 👈 nuevo
-  fechaResuelto: string | null;    // 👈 nuevo
+  fechaEnProceso: string | null;
+  fechaResuelto: string | null;
 };
 
 export const TRAMITE_TIPOS: { value: TramiteTipo; label: string }[] = [

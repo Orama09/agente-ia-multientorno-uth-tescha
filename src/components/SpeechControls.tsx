@@ -102,7 +102,7 @@ export default function SpeechControls({
       </label>
       <select
         id="ai-avatar-voice-select"
-        className="min-w-0 flex-1 max-w-full sm:max-w-[14rem] truncate text-xs border border-emerald-200 rounded-lg px-2 py-1.5 bg-white text-gray-700 outline-none focus:ring-2 focus:ring-green-400"
+        className="min-w-0 flex-1 truncate text-xs border border-emerald-200 rounded-lg px-2 py-1.5 bg-white text-gray-700 outline-none focus:ring-2 focus:ring-green-400"
         value={selectedVoiceURI ?? ""}
         onChange={(e) => onVoiceChange(e.target.value)}
         disabled={voices.length === 0}

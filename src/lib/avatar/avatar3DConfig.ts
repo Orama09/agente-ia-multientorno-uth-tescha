@@ -62,7 +62,7 @@ export const AVATAR_3D_DAMPING_FACTOR = 0.08;
 /** Velocidad de interpolación del reset suave (mayor = más rápido). */
 export const AVATAR_3D_RESET_LERP_SPEED = 2.8;
 /** En pantallas angostas desactivar órbita para no pelear con el scroll. */
-export const AVATAR_3D_DISABLE_ORBIT_BELOW_PX = 0;
+export const AVATAR_3D_DISABLE_ORBIT_BELOW_PX = 768;
 
 /** Nombres de clips esperados dentro del GLB. */
 export const AVATAR_3D_CLIP_NAMES = [
@@ -72,10 +72,6 @@ export const AVATAR_3D_CLIP_NAMES = [
   "happy",
   "error",
   "listening",
-  "greeting",
-  "explain",
-  "nod",
-  "wave",
 ] as const;
 
 export type Avatar3DClipName = (typeof AVATAR_3D_CLIP_NAMES)[number];
@@ -89,14 +85,6 @@ export const avatarStateToClip: Record<AvatarState, Avatar3DClipName> = {
   error: "error",
   listening: "listening",
 };
-
-/** Clips auxiliares reservados (no mapeados aún a AvatarState). */
-export const AVATAR_3D_AUX_CLIPS: readonly Avatar3DClipName[] = [
-  "greeting",
-  "explain",
-  "nod",
-  "wave",
-];
 
 export const AVATAR_3D_FALLBACK_CLIP: Avatar3DClipName = "idle";
 

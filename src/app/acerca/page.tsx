@@ -356,10 +356,14 @@ export default function Acerca() {
                 <p><span className="font-semibold text-green-600">Teléfono:</span> 59821088 / 59821089</p>
                 <p><span className="font-semibold text-green-600">Horario:</span> Lunes a viernes, 9:00–14:00 y 15:00–18:00 hrs.</p>
                 <p><span className="font-semibold text-green-600">Sitio web:</span>{" "}
-                  <a href="https://tescha.edomex.gob.mx/" className="text-blue-600 hover:underline">uth.hn</a>
-                </p> 
+                  <a href="https://tescha.edomex.gob.mx/" className="text-blue-600 hover:underline" target="_blank" rel="noopener noreferrer">
+                    https://tescha.edomex.gob.mx/
+                  </a>
+                </p>
                 <p><span className="font-semibold text-green-600">Correo:</span>{" "}
-                  <a href="mailto:depto.controlescolar@tesch.edu.mx" className="text-blue-600 hover:underline">depto.controlescolar@tesch.edu.mx</a>
+                  <a href="mailto:depto.controlescolar@tesch.edu.mx" className="text-blue-600 hover:underline">
+                    depto.controlescolar@tesch.edu.mx
+                  </a>
                 </p>
               </div>
 

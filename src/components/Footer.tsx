@@ -43,13 +43,6 @@ export default function Footer() {
             <MapPin size={16} className="mt-0.5 flex-shrink-0" />
             Carretera Federal México-Cuautla s/n, La Candelaria Tlapala, Chalco, Estado de México
           </span>
-          <a
-            href="mailto:control.escolar.ai.tescha@gmail.com"
-            className="flex items-center gap-2 text-sm text-gray-400 hover:text-green-400 transition-colors"
-          >
-            <Mail size={16} />
-            control.escolar.ai.tescha@gmail.com
-          </a>
         </div>
       </div>
 

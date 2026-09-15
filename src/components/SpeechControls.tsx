@@ -138,7 +138,7 @@ export default function SpeechControls({
         ))}
       </select>
 
-      <StopSpeechButton onStop={onStop} active={isSpeaking} />
+        {!hideStop && <StopSpeechButton onStop={onStop} active={isSpeaking} />}
     </div>
   );
 }

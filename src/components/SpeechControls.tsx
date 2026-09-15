@@ -19,6 +19,7 @@ type SpeechControlsProps = {
    * "stop-only" = solo botón Detener (uso en la barra del input).
    */
   variant?: "advanced" | "stop-only";
+  hideStop?: boolean;
 };
 
 /**
@@ -77,6 +78,7 @@ export default function SpeechControls({
   onRateChange,
   onStop,
   variant = "advanced",
+  hideStop = false,
 }: SpeechControlsProps) {
   if (!isSupported || !isEnabled) return null;
 

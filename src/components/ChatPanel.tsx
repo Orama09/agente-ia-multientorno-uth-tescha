@@ -10,7 +10,7 @@ import {
 } from "@/lib/assistant/assistantExperienceConfig";
 import { useSpeechSynthesis } from "@/lib/speech/useSpeechSynthesis";
 import { useStreamingSpeechSynthesis } from "@/lib/speech/useStreamingSpeechSynthesis";
-import { StopSpeechButton } from "./SpeechControls";
+import SpeechControls, { StopSpeechButton } from "./SpeechControls";
 
 type ChatMessage = {
   role: "user" | "assistant";
@@ -111,8 +111,11 @@ export default function ChatPanel({ onAvatarStateChange }: ChatPanelProps) {
     isSupported: speechSupported,
     isEnabled: speechEnabled,
     isSpeaking: oneshotSpeaking,
+    voices,
     selectedVoiceURI,
+    setSelectedVoiceURI, 
     rate: speechRate,
+    setRate,
     setEnabled: setSpeechEnabled,
     speak,
     cancel: cancelSpeech,
@@ -536,6 +539,25 @@ export default function ChatPanel({ onAvatarStateChange }: ChatPanelProps) {
             Escuchando… habla ahora. Clic otra vez en el micrófono para cancelar.
           </div>
         )}
+
+        {ttsAvailable && speechSupported && speechEnabled && (
+          <div className="mb-2">
+            <SpeechControls
+              variant="advanced"
+              hideStop
+              isSupported={speechSupported}
+              isEnabled={speechEnabled}
+              isSpeaking={ttsSpeaking}
+              voices={voices}
+              selectedVoiceURI={selectedVoiceURI}
+              rate={speechRate}
+              onVoiceChange={setSelectedVoiceURI}
+              onRateChange={setRate}
+              onStop={handleStopSpeech}
+            />
+          </div>
+        )}
+
         <div className="flex items-center gap-2">
           <div className="shrink-0 min-w-[2.25rem] flex items-center justify-start">
             <StopSpeechButton onStop={handleStopSpeech} active={ttsSpeaking} />
